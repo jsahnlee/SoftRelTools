@@ -1,0 +1,100 @@
+#!/bin/sh
+
+# srt_layer_link
+
+script_defaults () {
+	expected_args=1
+    quiet=false
+}
+
+usage () {
+	echo "usage: srt_layer_link <target>"
+	echo 
+	echo "srt_layer_link creates links to sublayers in a layered release."
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -q, --quiet: do not complain if package not found"
+	exit 1
+}
+
+process_args () {
+	while getopts "?-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+            q | quiet)
+                quiet=true
+                ;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+    
+    target=$1	
+    subtarget=`echo "$target" | sed -e "s%$PWD/%%"`
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ -f "GNUmakefile" ]; then
+		count=`grep -c srt_internal_top_of_testrel GNUmakefile`
+		if [ "$count" = "1" ]; then
+			in_rel=true
+		else
+			in_rel=false
+		fi
+	else
+		in_rel=false
+	fi
+	if [ ! "$in_rel" = "true" ]; then
+		fail "Please cd to the top of a base release to initialize a layered release."
+	fi
+
+    sublayers=`test -d sublayers && (cd sublayers>/dev/null;/bin/ls -1)`
+
+	for orig_layer in $sublayers
+    do
+        if [ -r $SRT_DIST/releases/$orig_layer/$subtarget ]; then 
+            /bin/rm -f $subtarget
+            srt_int_mkdir `pwd`/`dirname $subtarget`
+            ln -s $SRT_DIST/releases/$orig_layer/$subtarget $subtarget
+            found_sublayer=true
+        fi
+    done
+    if [ -z "$found_sublayer" ]; then 
+        if [ "$quiet" = "false" ]; then
+            fail "$subtarget not found in any sublayers."
+        fi
+    fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=srt_layer_link
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

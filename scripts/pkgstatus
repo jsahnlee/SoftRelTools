@@ -1,0 +1,80 @@
+#!/bin/sh
+
+# pkgstatus
+
+script_defaults () {
+	only_modified=false
+	expected_args=0
+}
+
+usage () {
+	echo "usage: pkgstatus [options]"
+	echo 
+	echo "Query cvs for the status of files."
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -m, --only-modified: only show modified files"
+	exit
+}
+
+process_args () {
+	while getopts "?m-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			? | help)
+				usage
+				;;
+			m | only-modified)
+				only_modified=true
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+}
+
+fail () {
+	echo "$1" >& 2
+	echo "$prog_name failed." >& 2
+	exit 1
+}
+
+actions () {
+	for i in `find . -print`
+	do
+		if [ `echo $i | grep -c /CVS` = 0 ]; then
+			if [ -d "$i" ]; then
+				echo "Directory $i:"
+			else
+				if [ "$only_modified" = "true" ]; then
+					cvs status $i | grep Status | grep -v "Up-to-date"
+				else
+					cvs status $i | grep Status
+				fi
+			fi
+		fi
+	done
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=pgkstatus
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

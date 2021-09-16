@@ -1,0 +1,142 @@
+#!/bin/sh
+
+# newver
+
+script_defaults () {
+	expected_args=2
+	version_type=frozen
+	head=false
+}
+
+usage () {
+	echo "usage: newver [options] <package> <tag>"
+	echo 
+	echo "newver adds a new version of a package to a distribution."
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p, -r, --frozen: create a frozen version (default)"
+	echo "    --development: create a development version"
+	echo "    -h, --head: add the head version of <package>"
+	echo "                head versions default to development"
+	echo "    -d <cvsroot> use <cvsroot> for the cvsroot"
+	echo "    -Q, --quiet: perform cvs actions quietly"
+	exit
+}
+
+process_args () {
+	while getopts "?prhQRd:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			p | r | frozen)
+				release_type=frozen
+				;;
+			development)
+				release_type=development
+				;;
+			h | head)
+				head=true
+				expected_args=1
+				release_type=development
+				;;
+			Q | quiet)
+				cvs_extra_args="$cvs_extra_args -Q"
+				;;
+			d)
+				cvs_server_args="-d $OPTARG"
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	package=$1
+	if [ "$head" = "true" ]; then
+		tag="HEAD"
+	else
+		tag=$2
+	fi
+	
+	if [ "$tag" = "HEAD" ]; then
+		release_type=development
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	target_dir=$SRT_DIST/packages/$package
+	
+	if [ -d "$target_dir/$tag" ]; then
+		fail "The \"$package\" version \"$tag\" already exists in $SRT_DIST."
+	fi
+	
+	if [ ! -d "$target_dir" ]; then
+		mkdir "$target_dir"
+	fi
+
+# A workaround for CYGWIN's buggy test cmd	
+	touch "$target_dir/srt_int_tmp.$$" > /dev/null 2>&1
+	if [ ! -f "$target_dir/srt_int_tmp.$$" ]; then
+		fail "You do not have write permission in \"$target_dir\"."
+	fi
+	/bin/rm -f "$target_dir/srt_int_tmp.$$"
+	cd $target_dir
+
+	echo "Adding version $tag to \"$package\" in $SRT_DIST."
+	if [ "$head" = "true" ]; then
+		cvs_tag_args=""
+	else
+		cvs_tag_args="-r $tag"
+	fi
+
+	if [ -z "$cvs_server_args" ]; then
+		if [ -f "$SRT_DIST/packages/$package/cvsroot" ]; then
+			echo "using package special cvs server"
+			cvs_server_args="-d `cat $SRT_DIST/packages/$package/cvsroot`"
+		fi
+	fi
+
+	if [ "$release_type" = "development" ]; then
+		cvs_action=checkout
+	else
+		cvs_action=export
+	fi
+
+	cvs $cvs_extra_args $cvs_server_args $cvs_action $cvs_tag_args -d $tag $package
+		cvs_error=$?
+
+	if [ "$cvs_error" != "0" ]; then
+		fail "cvs checkout failed."
+	fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=newver
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

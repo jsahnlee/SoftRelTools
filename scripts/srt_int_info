@@ -1,0 +1,133 @@
+#!/bin/sh
+
+# srt_int_info
+
+script_defaults () {
+	prog_name="srt_int_info"
+	return_val=name
+	expected_args=0
+}
+
+usage () {
+	echo "usage: srt_int_info [options]"
+	echo 
+	echo "srt_int_info is primarily for the internal use of SoftRelTools"
+	echo
+	echo "options:"
+	echo "    -H, --help: prints this usage message"
+	echo "    -n, --name: returns package name (default)"
+	echo "    -l, --local: returns local context"
+	exit
+}
+
+process_args () {
+	while getopts "Hnl-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			H | help)
+				usage
+				;;
+			n | name)
+				return_val=name
+				;;
+			l | local)
+				return_val=local
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+first_subdir () {
+	root=$1
+	dirname=$2
+	root=`echo $root || sed -e 's%^.*:%%'`
+	subdir=`echo $dirname | sed -e "s%^$cvs_root_dir/%%"`
+	return_name=`echo "$subdir_name" | sed -e 's%/.*%%g'`
+}
+
+actions () {
+# See if we are at the top of a test release
+	if [ -f "GNUmakefile" ]; then
+		count=`grep -c srt_internal_top_of_testrel GNUmakefile`
+		if [ "$count" = "1" ]; then
+			pkg_name="srt_internal_top_of_testrel"
+			local_name=`pwd`
+		fi
+	fi
+
+# See if we are really in a package in the distribution packages directory
+	if [ `/bin/pwd | grep -c "$SRT_DIST/packages/.*/.*"` -gt "0" ]; then
+		pkg_tag_name=`/bin/pwd | sed -e "s|$SRT_DIST/packages/||"`
+		pkg_name=`echo "$pkg_tag_name" | sed -e 's|/.*||'`
+		local_name=""
+	fi
+
+# If not, we are in a package in a test release
+	if [ -z "$pkg_name" ]; then	
+		if [ "$SRT_LOCAL" = "." ]; then
+			# March up directory tree until we hit top of testrel
+			pkg_name=`pwd | sed -e 's%.*/%%'`
+			local_name=`cd ..;pwd`
+                        if [ "`pwd`" = "/" ]; then
+                            fail "Unable to determine location of release."
+                        fi
+                        info_above=`cd .. ; srt_int_info --name`
+                        if [ ! "$info_above" = "srt_internal_top_of_testrel" ]; then
+                              cd ..
+                              pkg_name=`srt_int_info --name`
+                              local_name=`srt_int_info --local`
+                        fi  
+		else
+			# Rely on SRT_LOCAL to get the package name
+			root_dir=$SRT_LOCAL
+			root_dir=`echo $root_dir | sed -e 's%^.*:%%'`
+			subdir_name=`pwd | sed -e "s%^$root_dir/%%"`
+			pkg_name=`echo "$subdir_name" | sed -e 's%/.*%%g'`
+			local_name=$SRT_LOCAL
+		fi
+	fi
+	if [ "$return_val" = "name" ]; then
+		if [ -z "$pkg_name" ]; then
+			echo "SoftRelTools internal warning: failed to find package name"
+		fi
+		echo "$pkg_name"
+	fi
+	if [ "$return_val" = "local" ]; then
+		echo "$local_name"
+	fi
+}
+
+sanity_check() {
+# If we are in a package, either there should be a GNUmakefile in the
+# current directory, or the parent directory should be a release, which
+# must have a GNUmakefile, or we are in the packages directory.
+# Otherwise, we bail out.
+        if [ ! -f GNUmakefile ] && [ ! -f ../GNUmakefile ] && \
+            [ `/bin/pwd | grep -c "$SRT_DIST/packages/.*/.*"` = "0" ]; then
+            fail "No GNUmakefile in current or parent directory. Assuming no SoftRelTools."
+        fi
+}
+ 
+main () {
+	script_defaults
+#        sanity_check
+	process_args $*
+	actions
+}
+
+main $*

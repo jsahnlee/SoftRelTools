@@ -1,0 +1,385 @@
+#!/bin/sh
+
+# newrel now creates four kinds of releases:
+#   frozen (production)
+#	development
+#	test
+#	boot
+
+script_defaults () {
+	release_type=test
+	empty=false
+	use_version_file=false
+	expected_release_args=2
+	standard_dirs=" tmp bin lib include man doc results "
+	standard_files="GNUmakefile"
+	boot=false
+}
+
+usage () {
+	echo "usage: newrel [options] <base release> <new release>"
+	echo
+	echo "newrel creates a new production or test release."
+	echo
+	echo "options:"
+	echo 
+	echo "    -?, --help: prints this usage message"
+	echo "    -p, -r, --frozen: create a frozen (production) release"
+	echo "    -d, --development: create a development release"
+	echo "    -t, --test: create a test release"
+	echo "    -e, --empty: create an empty release, i.e., do not use"
+	echo "                 a base release. This option requires ommitting"
+	echo "                 the <base release> argument"
+	echo "    --boot: create a boot release. All other options except -g will be ignored."
+	echo "    -g <path>: path to GNUmakefile.boot for boot release."
+	echo "    -f <file>: use the version file specified by <file>"
+	echo "    -l: dummy argument for backward compatibility"
+	exit
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+process_args () {
+	while getopts "?pdtelf:g:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			p | r | frozen)
+				release_type=frozen
+				;;
+			d | development)	
+				release_type=development
+				;;
+			t | test)
+				release_type=test
+				;;
+			e | empty)
+				empty=true
+				expected_release_args=1
+				;;
+			f)	
+				use_version_file=true
+				version_file=$OPTARG
+				# If version_file is not an absolute path name, make it one.
+				if [ "`echo $version_file | grep -c '^/'`" = "0" ]; then
+					version_file=`/bin/pwd`/$version_file
+				fi
+				echo "version_file is $version_file"
+				expected_release_args=1
+				;;
+			boot)
+				boot=true
+				expected_release_args=0;
+				release_type=development
+				;;
+			g)
+				gtop_file=$OPTARG
+				;;
+			l)
+				# the -l argument in the old SoftRelTools is now default.
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [ "$#" -ne $expected_release_args ]; then
+		usage
+	fi
+	
+	if [ "$empty" = "true" ] || [ "$use_version_file" = "true" ]; then
+		release=$1
+	elif [ "$boot" = "true" ]; then
+		release=boot
+	else
+		base_release=$1
+		release=$2
+	fi
+}
+
+# Dereference: If /dirA/dirB is a link to /dirA/dirC
+#  dereference /dirA/dirB
+# returns 
+#   dirC
+# If /dirZ/dirB is a regular directory
+#  dereference /dirA/dirB
+# returns 
+#   dirB
+dereference () {
+	curdir=`/bin/pwd`
+	cd $1 > /dev/null
+	name=`/bin/pwd`
+	name=`basename $name`
+	echo $name
+	cd $curdir
+}
+
+linked_pkg_ver () {
+	echo `dereference $1`
+}
+
+linked_pkg_name () {
+	arg=$1
+	if [ -L "$arg" ]; then
+		curdir=`/bin/pwd`
+		cd $arg > /dev/null
+		name=`/bin/pwd`
+		name=`dirname $name`
+		name=`basename $name`
+		echo $name
+		cd $curdir
+	else
+		echo `basename $arg`
+	fi
+}
+	
+copy_using_file () {
+	cat $version_file | while read package version
+	do
+		if [ "$version" = "delete" ]; then
+			echo "Deleting package $package from release."
+		else
+			echo "$package: using requested version $version."
+			addpkg --production $package $version
+		fi
+	done
+}
+
+copy_interactively () {
+	cd $SRT_DIST/releases
+	for var in $base_release/*
+	do
+		name=`basename $var`
+		if [ -d "$var" ]; then 
+			package=`linked_pkg_name $var`
+			# Skip files and dirs that aren't packages: GNUmakefile, bin, etc.
+        	if (echo "$standard_dirs" | grep -v " $package " >/dev/null) then
+				version=`linked_pkg_ver $var`
+      			most_recent=`ls -t $SRT_DIST/packages/$package | head -1`
+      			if [ "$version" != "$most_recent" ]; then
+         			echo "*** Version $most_recent of $package is newer than $version"
+				fi
+    			echo -n "Override version $version for package $package (return for default): "
+    			read newver
+    			if [ -z "$newver" ]; then
+        		  newver=$version
+    			fi
+				cd $release > /dev/null
+				echo addpkg --production $package $version
+				addpkg --production $package $version
+				cd ..
+      		fi
+		else # is a file
+			if (echo "$standard_files" | grep -v " $package " >/dev/null) then
+				cp $var $release
+			fi
+		fi
+
+	done
+
+}
+		
+actions () {
+	if [ ! "$release_type" = "test" ]; then
+		cd $SRT_DIST/releases
+	fi
+	if [ -d "$release" ]; then
+		fail "The directory \"`pwd`/$release\" already exists."
+	fi
+	echo "Creating a $release_type release \"$release\" in the directory"
+	echo "    `pwd`"
+	mkdir $release
+	cd $release > /dev/null
+	
+	# Install top-level GNUmakefile
+	if [ "$boot" = "true" ]; then
+		if [ -z "$gtop_file" ]; then
+			gtop_file=$SRT_DIST/packages/SoftRelTools/HEAD/install/GNUmakefile.boot
+		fi
+		if [ -f "$gtop_file" ]; then
+			cp $gtop_file GNUmakefile
+		else
+			cd ..
+			rm -r $release
+			fail "$gtop_file not found."
+		fi
+	elif [ -z "$base_release" ]; then
+		# if SoftRelTools has been setup by ups, use that version
+		if [ ! -z "$SOFTRELTOOLS_DIR" ]; then
+			gtop_file=$SOFTRELTOOLS_DIR/install/GNUmakefile.top			
+		else # Use boot release
+			gtop_file=$SRT_DIST/releases/boot/SoftRelTools/install/GNUmakefile.top
+		fi
+		if [ -f "$gtop_file" ]; then
+			cp $gtop_file GNUmakefile
+		else
+			cd ..
+			rm -r $release
+			fail "GNUmakefile.top not found. Creating an empty release requires a proper boot release or ups setup."
+		fi
+	else
+		gtop_file=$SRT_DIST/releases/$base_release/SoftRelTools/install/GNUmakefile.top
+		if [ -f "$gtop_file" ]; then
+			cp $gtop_file GNUmakefile
+		else
+			cd ..
+			rm -r $release
+			fail "GNUmakefile.top not found."
+		fi
+	fi
+	
+	# Create directories
+	for var in $actual_dirs
+	do
+    	possible_pair=`echo "$var" | sed -e "s/>/ /"`
+    	if [ "$var" = "$possible_pair" ]; then
+			# make a directory
+			mkdir $var
+    	else
+			# make a link, creating the directory if necessary
+			link=`echo "$var" | sed -e "s/\(.*\)>.*/\1/"`
+			real_dir=`echo "$var" | sed -e "s/.*>\(.*\)/\1/"`
+			echo "Linking $link to $real_dir"
+			if [ ! -d $real_dir ]; then
+	    		srt_int_mkdir $real_dir
+			fi
+			ln -s $real_dir $link
+    	fi
+	done
+	
+	# Create .base_release file
+	if [ -z "$base_release" ]; then
+		touch .base_release
+	else
+		real_release=`dereference $SRT_DIST/releases/$base_release`
+		echo "$real_release" > .base_release
+	fi
+	
+	# If we are installing a test or boot release we are done
+	if [ "$release_type" = "test" ]; then
+		return
+	fi
+	if [ "$boot" = "true" ]; then
+		return
+	fi
+	
+	# We are installing a base release. Need to copy from previous release...
+	SRT_BASE_RELEASE=$release
+	export SRT_BASE_RELEASE
+	# ...but not if it's an empty release
+	if [ "$empty" = "true" ]; then
+		return
+	fi
+	
+	if [ "$use_version_file" = "true" ]; then
+		copy_using_file
+	else
+		copy_interactively
+	fi
+	
+	# Create log
+	release_log=results/ReleaseLog
+	echo " Creating release" $release "in " `pwd` > $release_log
+	echo " on " `date` >> $release_log
+	echo " by " `whoami` " at " `hostname` >> $release_log
+	echo >> $release_log
+
+	echo "-------------------------------------------" >> $release_log
+	ls -lt >> $release_log
+	echo "-------------------------------------------" >> $release_log
+	printenv >> $release_log
+	echo "===========================================" >> $release_log
+
+	# if release history area exists, copy log there and create a package list file
+	# this way when we delete the release, there will still be some history of it.
+	if [ -d $SRT_DIST/relhistory ]; then
+	   echo "Copying $release_log to relhistory area"
+	   mkdir $SRT_DIST/relhistory/$release
+	   cp $release_log $SRT_DIST/relhistory/$release/ReleaseLog
+	   echo "Making PackageList via statusrel for relhistory area"
+       statusrel -p $release > $SRT_DIST/relhistory/$release/PackageList
+	fi
+
+}
+
+# Function read_srtrc
+#
+# read_srtrc allows customization the directories created by
+# newrel --test. It will source either/both the files,
+# $SRT_DIST/srt/srtrc and $HOME/.srtrc in that order. The
+# file should contain the line
+#     extra_dirs=" dir1 dir2 dir3 "
+# to augment or replace the default dirs.
+# Symbolic links may be substituted for directories as in the following
+#     extra_dirs=" bin>/tmp/bin "
+# which will make bin a symbolic link to /tmp/bin, creating /tmp/bin if
+# necessary.
+
+read_srtrc () {
+	if [ -f "$SRT_DIST/srt/srtrc" ]; then
+	    . "$SRT_DIST/srt/srtrc"
+	    echo "read site srtrc"
+	fi
+
+# Only read user preferences for test releases
+	if [ "$release_type" = "test" ]; then
+    	if [ -f "$HOME/.srtrc" ]; then
+			. "$HOME/.srtrc"
+			echo "read user srtrc"
+    	fi
+	fi
+	# Old SRT used stddirs for linking directories look for it for
+	# backward compabiblity.
+	if [ ! -z "stddirs" ] && [ -z "extra_dirs" ]; then
+		extra_dirs=$stddirs
+	fi
+
+	if [ ! -z "extra_dirs" ]; then
+		actual_dirs=$extra_dirs
+		for dir in $extra_dirs
+		do
+			link=`echo "$dir" | sed -e "s/\(.*\)>.*/\1/"`
+			tmp_extra="$tmp_extra $link"
+		done
+		for dir in $standard_dirs
+		do
+			found=false
+			for possible_dir in $tmp_extra
+			do
+				if [ "$possible_dir" = "$dir" ]; then
+					found=true
+				fi
+			done
+			if [ "$found" = "false" ]; then
+				actual_dirs="$actual_dirs $dir"
+			fi
+		done
+	else
+		actual_dirs=$standard_dirs
+	fi	
+}
+	
+main () {
+	script_defaults
+	process_args $*
+	read_srtrc
+	actions
+}
+
+prog_name=newrel
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

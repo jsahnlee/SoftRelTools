@@ -1,0 +1,247 @@
+#!/bin/sh
+
+# cvsmigrate 
+
+script_defaults () {
+    expected_args=0
+    mode=change
+    force=false
+    list=false
+    test=false
+    get_cvs_pairs
+    cvsmigrate_prefs
+}
+
+# cvsmigrate_prefs is a stub. It can be overriden by system or user prefs.
+cvsmigrate_prefs () { :; }
+
+usage () {
+    echo "usage: cvsmigrate [options]"
+    echo 
+    echo "cvsmigrate searches the current directory for modules checked out"
+    echo "  of cvs and points them to (a) new repository(ies)."
+    echo
+    echo "options:"
+    echo "    -?, --help: prints this usage message"
+    echo "    -o <old_repository>: change old repository to new"
+    echo "			   -o must be used in conjunction with -d"
+    echo "    -d <repository>: set the new repository to be <repository>"
+    echo "    -l, --list: do not change anything; show old/new repository"
+    echo "    -t, --test: do not change anything; show what would change"
+    echo "    -f, --force: change files without asking"
+    exit
+}
+
+process_args () {
+    while getopts "?ld:o:f-:" opt; do
+    	if [ "$opt" = "-" ]; then
+    		opt=$OPTARG
+    	fi
+    	case $opt in
+    	    \? | help)
+    	        usage
+    	        ;;
+    	    d)
+    	    	repository=$OPTARG
+    	    	;;
+    	    o)
+    	    	old_repository=$OPTARG
+    	    	;;
+    	    f | force)
+    	    	force=true
+    	    	;;
+    	    l | list)
+    	    	list=true
+    	    	;;
+    	    t | test)
+    	    	test=true
+                force=true
+    	    	;;
+    	    *)      
+    	    	usage
+    	    	;;
+    	esac
+    done
+    shift `expr $OPTIND - 1`
+
+    if [  "$#" -ne "$expected_args" ]; then
+        usage
+    fi
+
+    if [ -n "$old_repository" ]; then
+       [ -z "$repository" ] && fail "-o option requires -d also"
+       cvs_pairs="$old_repository>$repository "
+       mode=change
+    else
+    	[ -n "$repository" ] && mode=set
+    fi
+}
+
+fail () {
+    echo "$1" >&2
+    echo "$prog_name failed." >&2
+    exit 1
+}
+
+get_cvs_pairs () {
+if [ -z "$cvs_pairs" ]; then
+    cvs_pairs="$cvs_pairs :pserver:anonymous@dcdsv0.fnal.gov:/oss-cvs>:pserver:anonymous@srtcvs.fnal.gov:/srtcvs "
+    cvs_pairs="$cvs_pairs cvsuser@oss-cvs.fnal.gov:/usr/products/olsshare/cvs>cvsuser@cdcvs.fnal.gov:/srtcvs_rw "
+fi
+}
+
+query_change () {
+
+    if [ "$force" = "false" ]; then
+
+    	doit=false
+    	echo "    Change to $new (n/y/Y) [n] ?"
+    	read reply
+
+    	if [ "$reply" = "y" ] || [ "$reply" = "yes" ]; then
+    	    doit=true
+    	fi
+    	
+    	if [ "$reply" = "Y" ]; then
+    	    doit=true
+    	    force=true
+    	fi
+    else
+        doit=true
+    fi
+    
+    if [ "$doit" = "true" ]; then
+        if [ "$test" = "true" ]; then
+            echo "Would     update $cvsdir "
+        else
+	    echo " Updating $cvsdir "
+            echo $new_root > $cvsdir/Root
+
+            old_dir=`echo "$old_root" | sed -e 's%.*:/%/%'`
+            new_dir=`echo "$new_root" | sed -e 's%.*:/%/%'`
+            new_repo=`sed -e "s%$old_dir%$new_dir%" $cvsdir/Repository`
+            echo $new_repo > $cvsdir/Repository
+        fi
+    fi
+}
+		
+		
+do_list () {
+
+    echo " "
+
+    if [ "$mode" = "change" ]; then
+    	for pair in $cvs_pairs
+    	do
+    	    old_cvs=`echo "$pair" | sed -e "s/\(.*\)>.*/\1/"`
+    	    new_cvs=`echo "$pair" | sed -e "s/.*>\(.*\)/\1/"`
+    	    echo "All instances of"
+    	    echo "    $old_cvs"
+            if [ "$test" = "true" ]; then
+    	        echo "would be changed to"
+            else
+    	        echo "will be changed to"
+	    fi
+    	    echo "    $new_cvs"
+    	    echo
+    	done
+    else
+        if [ "$test" = "true" ]; then
+    	    echo "All repositories would be changed to"
+        else
+    	    echo "All repositories will be changed to"
+        fi
+    	    echo "    $repository"
+    	    echo
+    fi
+}
+
+do_changes () {
+    pwd=`/bin/pwd`
+    cvsdirs=`find $pwd -type d -name CVS`
+    for cvsdir in $cvsdirs
+    do
+        if [ -r "$cvsdir/Root" -a -r "$cvsdir/Repository" ]; then
+            old_root=`cat $cvsdir/Root`
+            new_root=$old_root
+            if [ "$mode" = "change" ]; then
+                for pair in $cvs_pairs
+                do
+                    old_cvs=`echo "$pair" | sed -e "s/\(.*\)>.*/\1/"`
+                    new_cvs=`echo "$pair" | sed -e "s/.*>\(.*\)/\1/"`
+                    if [ "$old_root" = "$old_cvs" ]; then
+                        new_root=$new_cvs
+                    fi
+                done
+            else
+                new_root=$repository
+            fi
+            if [ ! "$old_root" = "$new_root" ]; then
+                query_change
+            else
+                [ "$test" = "true" ] && echo "Would not update $cvsdir "
+            fi
+        fi
+    done
+}
+
+actions () {
+    if [ "$list" = "true" ]; then
+    	do_list
+    else
+        do_list
+    	do_changes
+    fi
+    	    
+}
+
+main () {
+    if [ -f "$HOME/.srtrc" ]; then
+          . "$HOME/.srtrc"
+    fi
+    script_defaults
+    process_args $*
+    actions
+}
+
+prog_name=cvsmigrate
+if   [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]
+then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]
+then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*
+
+exit
+
+20000502	kreymer
+
+get_cvs_pairs sets cvs_pairs only if not already set 
+
+For clarity
+    changed mode=auto  to mode=change
+    changed mode=force to mode=set
+
+
+20000428  kreymer
+
+Changed indentation from tab to 4, for legibility
+
+In usage, change order of d/o, f/l, and added t
+
+Added -t , --test , for a dry run, showing what would change (sets force)
+
+Changed [ ! -z ... ] to [ -n ... ], and compressed -o, -d tests
+
+Moved main to the top of the script
+
+Changed scan for CVS/Root to CVS, then test for Root and Repository
+
+Added cvsdirs list of CVS directories.
+
+Dropped query_change arguments, using cvsdir instead.
+
+Eliminated use of tmp.cvsmigrate.$$

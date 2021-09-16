@@ -1,0 +1,137 @@
+#!/bin/sh
+
+# statusrel
+
+script_defaults () {
+	expected_args=1
+	check=false
+}
+
+usage () {
+	echo "usage: statusrel [options] <release>"
+	echo 
+	echo "statusrel lists the packages in a release"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p, --production: use a release from the production area (default)"
+	echo "    -c, --check: checks cvs for changes."
+	exit
+}
+
+process_args () {
+	while getopts "?pc-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			p | production)
+				# Default behavior. Do nothing
+				;;
+			c | check)
+				check=true;
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [  "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	release=$1
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+get_package_version () {
+	back=`/bin/pwd`
+	cd $1 > /dev/null
+	here=`/bin/pwd`
+	if [ "`echo $here | grep -c $SRT_DIST/packages/`" = "1" ]; then
+		pack_ver_tmp=`/bin/ls -l $1`
+		pack_ver_tmp=`echo "$pack_ver_tmp" | sed -e "s@.*/packages/@@"`
+		# remove trailing slash
+		pack_ver_tmp=`echo $pack_ver_tmp | sed 's@/$@@'`
+		got_package=`echo $pack_ver_tmp | sed 's@/.*@@'`
+		got_version=`echo $pack_ver_tmp | sed 's@.*/@@'`
+		foundpackage=true
+	else
+		foundpackage=false
+	fi
+	cd $back
+}
+
+find_most_recent () {
+    fmr_package="$1"
+    max=`/bin/ls -t $SRT_DIST/packages/$fmr_package | wc -l`
+    first_dir=1
+    fmr_result=""
+    while [ -z "$fmr_result" ]; do
+        fmr_result=`/bin/ls -t $SRT_DIST/packages/$fmr_package | head -$first_dir | tail -1`
+        if [ ! -d "$SRT_DIST/packages/$fmr_package/$fmr_result" ]; then
+            fmr_result=""
+            first_dir=`expr $first_dir + 1`
+            if [ "$first_dir" -gt "$max" ]; then
+                fmr_result="*** no versions found ***"
+            fi
+        fi
+    done
+    echo "$fmr_result"
+}
+
+actions () {
+	if [ ! -d "$SRT_DIST/releases/$release" ]; then
+		fail "The distribution $SRT_DIST does not contain the release $release"
+	fi
+	cd $SRT_DIST/releases/$release
+	for dir in *
+	do	
+		if [ -L "$dir" ]; then
+			get_package_version $SRT_DIST/releases/$release/$dir
+			if [ "$foundpackage" = "true" ]; then
+				most_recent=`find_most_recent $got_package`
+    			if [ "$got_version" != "$most_recent" ]; then
+      				recent_msg=" ($most_recent more recent) "
+      				cvs_tag=$most_recent
+				else
+					recent_msg=""
+					cvs_tag=$got_version
+				fi
+				cvs_msg=""
+				if [ "$check" = "true" ]; then
+     				if [ "`cvs -Q rdiff -s -r $cvs_tag -r HEAD $package | grep changed`" ]; then
+        				cvs_check=" (CVS head revision differs)"
+     				fi
+				fi
+				echo "$got_package $got_version $recent_msg $cvs_msg"
+			fi
+		fi
+	done
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=statusrel
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*
+    

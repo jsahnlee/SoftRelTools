@@ -1,0 +1,181 @@
+#!/bin/sh
+
+#rmrel
+
+script_defaults () {
+	rm_flags=""
+        standard_dirs=" tmp bin lib include man doc results "
+}
+
+usage () {
+	echo "usage: rmrel [options] <release>"
+	echo 
+	echo "Remove a release. If newrel automatically created links to"
+        echo "scratch areas, delete the scratch areas also."
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -i, --interactive: interactive mode for rm"
+	echo "    -f, --force: force mode for rm"
+	exit
+}
+
+process_args () {
+	while getopts "?if-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | head)
+				usage
+				;;
+			i | interactive)
+				rm_flags="-i"
+				;;
+			f | force)	
+				rm_flags="-f"
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ ! "$#" = "1" ]; then
+    	usage
+	fi
+	
+	# strip off possible trailing slash
+	release=`echo $1 | sed 's@/$@@'`
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ ! -d "$release" ]; then
+		fail "Release \"$release\" not found."
+	fi
+        orig_location=`pwd`
+        cd $release > /dev/null
+        if [ -f GNUmakefile ] && [ "`grep -c srt_internal_top_of_testrel GNUmakefile`" = "1" ]; then
+
+	    if [ -s .base_release ]; then
+		created_links=""
+		for var in $actual_dirs
+		do
+		    possible_pair=`echo "$var" | sed -e "s/>/ /"`
+		    if [ ! "$var" = "$possible_pair" ]; then
+			# add to list of links
+			link=`echo "$var" | sed -e "s/\(.*\)>.*/\1/"`
+			created_links="$link $created_links"
+		    fi
+		done
+		links=`find . -type l | sed -e 's%[.]/%%g'`
+		for link in $links
+		do    
+		    found=false
+		    for dir in $created_links
+		    do
+			if [ "$dir" = "$link" ]; then
+			    found=true
+			fi
+		    done
+		    if [ "$found" = "true" ]; then
+			if [ -d "$link" ]; then
+			    target=`cd $link>/dev/null;/bin/pwd` 
+			    echo "Found automatically created link $link..."
+			    if [ "$target" = "/" ]; then
+				fail "$link points to / ! Will not continue."
+			    fi
+			    if [ "$target" = "$HOME" ]; then
+				fail "$link points to $HOME ! Will not continue."
+			    fi
+			    echo "...removing $target"
+			    /bin/rm $rm_flags -r $target
+			    echo ""
+			fi
+		    else
+			echo ""
+			echo "Ignoring unknown symbolic link $link"
+			echo "ls -ld $link gives"
+			ls -ld $link
+			echo ""
+		    fi
+		done
+		cd $orig_location
+		echo "Removing $release"
+		/bin/rm $rm_flags -r $release
+	    else
+		fail "\"$release\" is not a test release, but a base release (probably)."
+	    fi
+        else
+            fail "\"$release\" is not a SoftRelTools release."
+        fi
+	
+}
+
+# read_srtrc identical to same function in newrel.
+read_srtrc () {
+	if [ -f "$SRT_DIST/srt/srtrc" ]; then
+	    . "$SRT_DIST/srt/srtrc"
+	    echo "read site srtrc"
+	fi
+
+# Only read user preferences for test releases
+	if [ "$release_type" = "test" ]; then
+	    if [ -f "$HOME/.srtrc" ]; then
+		. "$HOME/.srtrc"
+		echo "read user srtrc"
+	    fi
+	fi
+	# Old SRT used stddirs for linking directories look for it for
+	# backward compabiblity.
+	if [ ! -z "stddirs" ] && [ -z "extra_dirs" ]; then
+		extra_dirs=$stddirs
+	fi
+
+	if [ ! -z "extra_dirs" ]; then
+		actual_dirs=$extra_dirs
+		for dir in $extra_dirs
+		do
+			link=`echo "$dir" | sed -e "s/\(.*\)>.*/\1/"`
+			tmp_extra="$tmp_extra $link"
+		done
+		for dir in $standard_dirs
+		do
+			found=false
+			for possible_dir in $tmp_extra
+			do
+				if [ "$possible_dir" = "$dir" ]; then
+					found=true
+				fi
+			done
+			if [ "$found" = "false" ]; then
+				actual_dirs="$actual_dirs $dir"
+			fi
+		done
+	else
+		actual_dirs=$standard_dirs
+	fi	
+}
+
+main () {
+	script_defaults
+        process_args $*
+        # Use newrel's read_srtrc function, assuming that we have a test release
+	release_type=test;read_srtrc
+	actions
+}
+
+prog_name=rmrel
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

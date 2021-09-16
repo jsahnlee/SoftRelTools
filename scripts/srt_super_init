@@ -1,0 +1,96 @@
+#!/bin/sh
+
+# srt_super_init
+
+script_defaults () {
+	expected_args=0 # or one. Either will work.
+}
+
+usage () {
+	echo "usage: srt_super_init"
+	echo 
+	echo "srt_super_init initializes the super directory of a super test release"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	exit 1
+}
+
+process_args () {
+	while getopts "?-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	# If we expected one argument, but got something else, stop	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ -f "GNUmakefile" ]; then
+		count=`grep -c srt_internal_top_of_testrel GNUmakefile`
+		if [ "$count" = "1" ]; then
+			in_testrel=true
+		else
+			in_testrel=false
+		fi
+	else
+		in_testrel=false
+	fi
+	if [ ! "$in_testrel" = "true" ]; then
+		fail "Please cd to the top of a test release to initialize super."
+	fi
+	rm -f ./super/include/SoftRelTools
+	srt_int_mkdir `pwd`/super/include
+    if [ ! -d "SoftRelTools" ]; then
+	    base_SRT=$SRT_DIST/releases/$SRT_BASE_RELEASE/include/SoftRelTools
+	    if [ -d "$base_SRT" ]; then
+		    ln -s $base_SRT ./super/include/SoftRelTools
+	    else
+		    fail "Cannot find SoftRelTools in the base release! Completely stuck!"
+	    fi
+    fi
+
+	rm -f ./super/include/SRT_$SRT_PROJECT
+	base_SRT_PROJECT=$SRT_DIST/releases/$SRT_BASE_RELEASE/include/SRT_$SRT_PROJECT
+    if [ ! -d "SRT_$SRT_PROJECT" ]; then    
+	    if [ -d "$base_SRT_PROJECT" ]; then
+		    ln -s $base_SRT_PROJECT ./super/include/SRT_$SRT_PROJECT
+	    fi
+	    # The absence of an SRT_$PROJECT package is not an error.
+    fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=srt_super_init
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

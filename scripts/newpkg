@@ -1,0 +1,153 @@
+#!/bin/sh
+
+# newpkg 
+
+script_defaults () {
+	location=in_test_rel
+	use_other_cvsroot=false
+	expected_package_args=1
+}
+
+usage () {
+	echo "usage: newpkg [options] <package>"
+	echo 
+	echo "newpkg creates a new package in a test release"
+	echo "newpkg -p creates a new directory in the"
+	echo "          packages directory of a distribution"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p, --production"
+	echo "    -d set the cvsroot for the package in the distribution"
+	echo "       to <cvsroot> (Only applies to new production packages)"
+	exit
+}
+
+process_args () {
+	while getopts "?pd:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in 
+			\? | help)
+				usage
+				;;
+			p | production )
+				location=production_area
+				;;
+			d)	use_other_cvsroot=true
+				cvsroot=$OPTARG
+				;;
+			*)  usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [ "$#" -ne "$expected_package_args" ]; then
+		usage
+	fi
+
+	package=$1
+}
+
+fail () {
+	echo "$1"
+	echo "$prog_name failed."
+	exit 1
+}
+
+new_production_package () {
+# A workaround for CYGWIN's buggy test cmd	
+	touch "$SRT_DIST/packages/srt_int_tmp.$$" > /dev/null 2>&1
+	if [ ! -f "$SRT_DIST/packages/srt_int_tmp.$$" ]; then
+		fail "You do not have write permission for \"$SRT_DIST/packages\"."
+	fi
+	/bin/rm -f "$SRT_DIST/packages/srt_int_tmp.$$"
+	if [ -f "$SRT_DIST/packages/$package" ]; then
+		fail "Package \"$package\" already exists in distribution \"$SRT_DIST\"."
+	fi
+	mkdir $SRT_DIST/packages/$package
+	if [ "$use_other_cvsroot" = "true" ]; then
+		echo "$cvsroot" > $SRT_DIST/packages/$package/cvsroot
+	fi
+}
+
+new_testrel_package () {
+	# Create the directory, if needed
+	if [ -d "$package" ]; then
+		echo "Using existing directory $package"
+	else
+		create_package
+	fi
+	
+	# Create the include link
+	echo "Creating include link"
+	# This is equivalent to doing an srt_setup -a. It makes querypkg much
+	# faster.
+	thisdir=`pwd`
+	. `srt_environment -X SRT_LOCAL=$thisdir`
+	pkg_include=`srt_int_querypkg --include $package`
+	echo "pkg_include is $pkg_include"
+	cd include > /dev/null
+	rm -f $package
+        ln -s ../$pkg_include $package
+	
+}
+
+create_package () {
+	echo "Creating directory $package"
+	mkdir $package
+	echo "Creating directory $package/src"
+	mkdir $package/src
+	echo "Creating directory $package/include"
+	mkdir $package/include
+	# Get a GNUmakefile for the top level
+	echo "Copying and modifying example GNUmakefile from"
+	find_makefile GNUmakefile.example.top
+	echo " $found_makefile"
+	sed -e "s/SamplePackage/$package/g" $found_makefile > $package/GNUmakefile
+	# Get a GNUmakefile for the src directory
+	echo "Copying and modifying example GNUmakefile from"
+	find_makefile GNUmakefile.example
+	echo " $found_makefile"
+	sed -e "s/SamplePackage/$package/g" $found_makefile > $package/src/GNUmakefile
+}
+
+find_makefile() {
+	filename=$1
+	for context in $SRT_PRIVATE_CONTEXT $SRT_PUBLIC_CONTEXT
+	do
+		for location in SRT_LOCAL SRT_$SRT_PROJECT SoftRelTools
+		do
+				if [ -f "$context/$location/templates/$filename" ]; then
+				found_makefile=$context/$location/templates/$filename
+				return
+			fi
+		done
+	done
+	fail "Could not find an appropriate GNUmakefile.example"
+}	
+
+actions () {
+	if [ "$location" = "in_test_rel" ]; then
+		new_testrel_package
+	else
+		new_production_package
+	fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=newpkg
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

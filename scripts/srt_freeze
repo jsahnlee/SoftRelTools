@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# srt_freeze
+
+script_defaults () {
+	expected_args=1
+	mode=freeze
+}
+
+usage () {
+	echo "usage: srt_freeze [options] <directory>"
+	echo 
+	echo "srt_freeze renders all files in <directory> unwriteable"
+	echo "srt_freeze --melt renders all files in <directory> owner writeable"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -m, --melt: render all files in <directory> owner writeable"
+	exit
+}
+
+process_args () {
+	while getopts "?tph-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			m | melt)
+				mode=melt
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [  "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	dirname=$1
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ "$mode" = "freeze" ]; then
+		find $dirname -exec chmod a-w {} \;
+		if [ "$?" -ne "0" ]; then
+			fail
+		fi
+	fi
+	if [ "$mode" = "melt" ]; then
+		find $dirname -exec chmod u+w {} \;
+		if [ "$?" -ne "0" ]; then
+			fail
+		fi
+	fi
+	}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=srt_freeze
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

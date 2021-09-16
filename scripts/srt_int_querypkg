@@ -1,0 +1,121 @@
+#!/bin/sh
+
+# srt_int_querypkg
+
+script_defaults () {
+	prog_name="srt_int_querypkg"
+	what=products
+	max_expected_args=1
+	directory=.
+}
+
+usage () {
+	echo "usage: srt_int_querypkg [options] [directory]"
+	echo 
+	echo "srt_int_querypkg is primarily for the internal use of SoftRelTools"
+	echo
+	echo "options:"
+	echo "    -H, --help: prints this usage message"
+	echo "    -i, --include: returns package include directory"
+	echo "    -p, --products: returns products created by package (default)"
+	echo "    -v <var>: returns the package value of <var>"
+	exit
+}
+
+process_args () {
+	while getopts "Hipv:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			H | help)
+				usage
+				;;
+			i | include)
+				what=include
+				;;
+			p | products)
+				what=products
+				;;
+			v)
+				what=var
+				which_var=$OPTARG
+				;;
+			quest)
+				what=quest
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -gt "$max_expected_args" ]; then
+		usage
+	fi
+	
+	if [ "$#" = "1" ]; then
+		directory=$1
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+query_makefile () {
+	if [ -f "GNUmakefile" ]; then
+		return_val=`gmake --just-print queryecho_$1 2> /dev/null | grep srt_int_query_begin | sed -e 's/^.*srt_int_query_begin//' | sed -e 's/srt_int_query_end.*//'`
+		if [ ! -z "$return_val" ]; then
+			return_val=`echo "$return_val" | tr '\n' ' '`
+		fi
+	else
+		return_val=""
+	fi
+}
+
+do_include () {
+	package=`srt_int_info --name`
+	query_makefile PACKAGE_INCLUDE
+	include_dir=$package/$return_val
+	if [ -z "$return_val" ]; then
+		include_dir=$package
+		if [ -d $package ]; then
+			include_dir=$package/$package
+		elif [ -d include ]; then
+			include_dir=$package/include
+		elif [ -d src ]; then
+			include_dir=$package/src
+		fi
+	fi
+	echo "$include_dir"
+}
+
+do_products () {
+	query_makefile SRT_PRODUCTS
+	echo "$return_val"
+}
+
+do_var () {
+	query_makefile $which_var
+	echo "$return_val"
+}
+	
+do_quest () {
+	echo "To seek the holy grail."
+}
+
+actions () {
+	cd $directory > /dev/null
+	do_$what
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+main $*

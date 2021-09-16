@@ -1,0 +1,94 @@
+#!/bin/sh
+
+# addpkg
+
+script_defaults () {
+	expected_args=2 # or one. Either will work.
+	extra_args=""
+	tag=""
+}
+
+usage () {
+	echo "usage: lnkpkg [options] <package> [tag]"
+	echo 
+	echo "lnkpkg links a package to a release. It is equivalent to calling"
+	echo "       addpkg --link"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -t, --test: link a package in a test release (default)"
+	echo "    -p, --production: link a package in a production release"
+	echo "    -h, --head: link the head version of <package>"
+	exit 1
+}
+
+process_args () {
+	while getopts "?tph-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			t | test)
+				extra_args="$extra_args --test"
+				;;
+			p | production)
+				extra_args="$extra_args --production"
+				;;
+			h | head)
+				extra_args="$extra_args --head"
+				expected_args=1
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	# If we expected one argument, but got something else, stop	
+	if [ "$expected_args" = "1" ] && [  "$#" -ne "1" ]; then
+		usage
+	fi
+	
+	if [ "$expected_args" = "2" ] && [  "$#" -ne "2" ]; then
+		if [  "$#" -ne "1" ]; then
+			usage
+		fi
+	fi
+
+	package=$1
+	if [ "$#" = "2" ]; then
+		tag=$2
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	addpkg "--link $extra_args $package $tag"
+	if [ "$?" -ne "0" ]; then
+		fail
+	fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=lnkpkg
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

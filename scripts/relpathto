@@ -1,0 +1,153 @@
+#!/bin/sh
+#
+# This version of relpathto has been modified to follow the same
+# logic as the other SoftRelTools scripts by James Amundson.
+#
+# Scott Snyder's relpathto
+#
+# Usage: relpathto PATH
+#
+# Writes to stdout the relative path from the current directory to PATH.
+# PATH may be either absolute or relative.  
+#
+# sss Feb, 1998.
+#
+
+script_defaults () {
+	rm_flags=""
+	quiet=false
+	create=false
+	expected_args=1
+}
+
+usage () {
+	echo "usage: relpathto <path>"
+	echo 
+	echo "relpathto returns a relative path to <path>"
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -Q, --quiet: quietly return <path> if <path> does not exist"
+	echo "    -c, --create: create <path> if it does not exist"
+	exit
+}
+
+process_args () {
+	while getopts "?-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			? | help)
+				usage
+				;;
+			Q | quiet)
+				quiet=true
+				;;
+			c | create)
+				create=true
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ ! "$#" = "$expected_args" ]; then
+    	usage
+	fi
+
+	# Get the target path.
+	targ=$1
+
+	if [ "$targ" = "" ]; then
+	  usage
+	fi
+
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	# Make sure targ it's valid.
+	if [ ! -d $targ ]; then
+		if [ "$quiet" = "true" ]; then
+			echo "$targ"
+			exit
+		fi
+		if [ "$create" = "true" ]; then
+			srt_int_mkdir $targ
+		else
+			fail "Invalid path \`$targ'."
+		fi
+	fi
+	# Get the current directory.
+	curdir=`/bin/pwd`
+
+	# And the target directory.
+	# Do it by changing to that directory and doing pwd.
+	# This ensures that we have an absolute path.
+	cd $targ
+	targdir=`/bin/pwd`
+	cd $curdir
+
+	# Handle the case where curdir and targdir are the same.
+	if [ "$curdir" = "$targdir" ] ; then
+	  echo "."
+	  exit 0
+	fi
+
+	# Pull matching pathname components off the heads of the paths.
+	curhead=`expr "$curdir" : '/\([^/]*\)'`
+	targhead=`expr "$targdir" : '/\([^/]*\)'`
+
+	while [ "$curhead" = "$targhead" ] ; do
+
+	  curdir=`expr "$curdir" : '/[^/]*\(/.*\)'`
+	  targdir=`expr "$targdir" : '/[^/]*\(/.*\)'`
+
+	  curhead=`expr "$curdir" : '/\([^/]*\)'`
+	  targhead=`expr "$targdir" : '/\([^/]*\)'`
+
+	done
+
+	# Strip off the leading slashes.
+	curdir=`expr "$curdir" : '/\(.*\)'`
+	targdir=`expr "$targdir" : '/\(.*\)'`
+
+	# Replace every remaining component in the current path with `..'.
+	uppath=`echo $curdir | sed -e 's@[^/][^/]*@..@g'`
+
+	# Tack on the remaining target path.
+	# Add a directory separator between them only if neither is blank.
+	reslt=$uppath
+
+	if [ "$reslt" != "" -a "$targdir" != "" ]; then
+	  reslt=$reslt/
+	fi
+
+	# Done.
+	echo $reslt$targdir
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=relpathto
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*
+
+
+

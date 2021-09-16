@@ -1,0 +1,122 @@
+#!/bin/sh
+
+# depend
+
+script_defaults () {
+	use_file=false
+	quiet=false
+}
+
+usage () {
+	echo "usage: depend [options] <package> [release]"
+	echo "       depend [options] -f <file> [release]"
+	echo 
+	echo "depend finds all the packages in <release> that depend on <package> or <file>"
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -f <file> find packages depending on file"
+	echo "    -q, --quiet: suppresses everything but the list of packages"
+	exit
+}
+
+process_args () {
+	while getopts "?qf:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			f)
+				use_file=true
+				file=$OPTARG
+				;;
+			q | quiet)
+				quiet=true;
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$use_file" = "false" ]; then
+		package=$1
+		shift 1
+	fi
+
+	if [ "$#" = "0" ]; then
+		if [ -r ./.base_release ]; then
+			release=`cat ./.base_release`
+		else
+			release=$SRT_BASE_RELEASE
+		fi
+	elif [ "$#" = "1" ]; then
+		release=$1
+	else
+		echo "found $#, expected $max_expected_args or $min_expected_args"
+		usage
+	fi
+	
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ "$quiet" = "false" ]; then
+		echo "Looking in release $release..."
+	fi
+	
+	if [ ! -d "$SRT_DIST/releases/$release/tmp/$SRT_SUBDIR" ]; then
+		fail "$SRT_DIST/releases/$release/tmp/$SRT_SUBDIR not found."
+	else
+		cd $SRT_DIST/releases/$release/tmp/$SRT_SUBDIR
+		if [ "$use_file" = "true" ]; then
+			if [ "$quiet" = "false" ]; then
+    		   echo "These files in release $release include file $file:"
+			fi
+			dep_files=`find . -type f -name "*.d" -print | xargs grep -l /$file`
+			for eachfile in $dep_files
+			do
+			  pkg=`echo $eachfile | sed "s@\\./@@"`
+			  pkg=`echo $pkg | sed "s@/.*@@"`
+    		  src_file=`head -1 $eachfile | awk -F: '{print $2}'`
+			  src_file=`echo $src_file | sed "s@.*/$pkg/[^/]*/@@"`
+    		  echo $pkg/$src_file
+			done
+		else			
+			if [ "$quiet" = "false" ]; then
+    		  echo "These packages in release $release use include files from package $package:"
+			fi
+			for pkg in *
+			do
+			  dep_files=`find $pkg -type f -name "*.d" -print | xargs grep -l /include/$package`
+    		  if [ "$dep_files" != "" ]; then
+    			echo "$pkg"
+ 			  fi
+			done
+		fi
+    fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=depend
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

@@ -1,0 +1,98 @@
+#!/bin/sh
+
+#rmpkg
+
+script_defaults () {
+	rm_flags=""
+}
+
+usage () {
+	echo "usage: rmpkg [options] <package>"
+	echo 
+	echo "remove a package"
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -i, --interactive: interactive mode for rm"
+	echo "    -f, --force: force mode for rm"
+	exit
+}
+
+process_args () {
+	while getopts "?if-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | head)
+				usage
+				;;
+			i | interactive)
+				rm_flags="-i"
+				;;
+			f | force)	
+				rm_flags="-f"
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ ! "$#" = "1" ]; then
+    	usage
+	fi
+	
+	# strip off possible trailing slash
+	package=`echo $1 | sed 's@/$@@'`
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ ! -d "$package" ]; then
+		fail "Package \"$package\" not found."
+	fi
+	
+	products=`srt_int_querypkg --products $package`
+	rm $rm_flags -r $package
+	if [ -d "tmp/$SRT_SUBDIR/$package" ]; then
+		rm $rm_flags -r tmp/$SRT_SUBDIR/$package
+	fi
+        # Solaris is such a pain in the neck
+        if [ "`uname -s`" = "SunOS" ]; then
+            srt_link_test=h
+        else
+            srt_link_test=L
+        fi
+	if [ -${srt_link_test} "include/$package" ]; then
+		rm $rm_flags include/$package
+	fi
+	if [ ! -z "$products" ]; then
+		for i in $products
+			do
+			if [ -f "$i" ]; then
+				rm $rm_flags $i
+			fi
+			done
+	fi
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=rmpkg
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

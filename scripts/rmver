@@ -1,0 +1,117 @@
+#!/bin/sh
+
+# rmver
+
+script_defaults () {
+	expected_args=2
+	check=false
+}
+
+usage () {
+	echo "usage: rmver [options] <package> <version>"
+	echo 
+	echo "rmver removes a version of package from a distribution after"
+	echo "checking to see if it is in use by any releases."
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p, --production: removes from the production area (default)"
+	echo "    -c, --check: just checks to see if version in use. Does not remove it."
+	exit
+}
+
+process_args () {
+	while getopts "?pc-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			p | production)
+				# Default behavior. Do nothing
+				;;
+			c | check)
+				check=true;
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [  "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	package=$1
+	version=$2
+	if [ "$version" = "/" ]; then
+		fail '"/" is not a valid version!'
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+do_remove () {
+	cd $SRT_DIST/packages/$package
+	srt_freeze --melt $version
+	rm -r $version
+}
+
+actions () {
+	if [ ! -d "$SRT_DIST/packages/$package/$version" ]; then
+		fail "The distribution $SRT_DIST does not contain the version $version of package $package"
+	fi
+	cd $SRT_DIST/packages/$package/$version
+	version_dir=`/bin/pwd`
+	in_use=false
+	for possible in $SRT_DIST/releases/*/$package
+	do
+		if [ "$possible" != "$SRT_DIST/releases/*/$package" ]; then
+			cd $possible
+			used_dir=`/bin/pwd`
+		
+			if [ "$version_dir" = "$used_dir" ]; then
+				in_use=true
+				echo "Version in use by $possible"
+			fi
+		fi
+	done
+
+	if [ "$in_use" = "false" ]; then
+		if [ "$check" = "true" ]; then
+			echo "Version is not in use."
+		else
+			echo "Completely remove version $version of the $package package? (y/n) [n]"
+			read reply
+			if [ "$reply" = "y" ]; then
+				do_remove
+				echo "Removed."
+			else
+				echo "Not removed."
+			fi
+		fi
+	fi	
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=rmver
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

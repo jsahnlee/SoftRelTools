@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# usage:
+#	getvars arch_spec_foo.mk
+# produces arch_spec_foo.mk.test
+# 	gmake -f arch_spec_foo.mk.test
+# generates a printout of all variables defined by arch_spec_foo.mk
+#
+
+file=$1
+
+grep = $file | sed -e "s/[+:]=.*//g" | sed -e "s/=.*//g" | \
+	sed -e "s/override //g" | sed -e "s/#.*//g" | sed -e "s/[ \t]//g" | \
+	grep -v "^\$" | sort -u> $file.vars
+
+echo "include $file" > $file.test
+echo ".PHONY: test" >> $file.test
+echo "" >> $file.test
+echo "test:" >> $file.test
+sed -e 's/.*/	@echo & = $(&)/' $file.vars >> $file.test
+rm $file.vars
+echo "Running the result:"
+gmake -f $file.test

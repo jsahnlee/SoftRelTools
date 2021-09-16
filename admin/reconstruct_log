@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# reconstruct_log: convert parallel build log into equivalent serial build log.
+# usage: "SoftRelTools/admin/reconstruct_log" from the top of a release
+# output sent to stdout.
+# This script lives in the admin directory because it is not yet ready for
+# prime time.
+
+log_dir=build-logs
+if [ ! -d "build-logs" ]; then
+    echo "reconstruct_log needs to find the directory build-logs in the current directory" >&2
+    exit 1
+fi
+
+# Get list of packages (in order) from SRT
+gmake mainecho_packages | grep -v 'origin.* returns .*'| \
+    sed -e 's%=\(.*\)%="\1"%' > tmp.reconstruct_log
+if [ "$?" != "0" ]; then
+    echo "Could not get list of packages. Are you at the top of a release?" >&2
+    /bin/rm -f tmp.reconstruct_log
+    exit 1
+fi
+. tmp.reconstruct_log
+/bin/rm -f tmp.reconstruct_log
+
+cd $log_dir
+
+# Get list of stages
+stages=`ls -1rt | sed -e 's/.*\.//' | sort -um`
+
+for stage in $stages
+do
+    echo "<**$stage**>"
+    for package in $packages
+    do
+        echo "<**$stage**> $package"
+        # Look for errors
+        if [ "`grep -c gmake\\\\[ $package.$stage`" = "0" ]; then
+            cat $package.$stage
+        else
+            # convert gmake[n] to gmake[n+1]
+            cat $package.$stage | \
+                sed -e 's/gmake.9.:/gmake[10]:/'| \
+                sed -e 's/gmake.8.:/gmake[9]:/'| \
+                sed -e 's/gmake.7.:/gmake[8]:/'| \
+                sed -e 's/gmake.6.:/gmake[7]:/'| \
+                sed -e 's/gmake.5.:/gmake[6]:/'| \
+                sed -e 's/gmake.4.:/gmake[5]:/'| \
+                sed -e 's/gmake.3.:/gmake[4]:/'| \
+                sed -e 's/gmake.2.:/gmake[3]:/'| \
+                sed -e 's/gmake.1.:/gmake[2]:/'
+            echo "gmake[1]: *** [$package.$stage] Error 2"
+        fi
+    done
+done
+
+        

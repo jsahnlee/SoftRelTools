@@ -1,0 +1,126 @@
+#!/bin/sh
+
+script_defaults () {
+	expected_args=1
+}
+
+usage () {
+	echo "usage: newdist [options] <distname>"
+	echo 
+	echo "newdist creates a new distribution directory."
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p <project>: sets the project. Defaults to \$SRT_PROJECT."
+	echo "    -c <cvsroot>: sets the cvs repository. Defaults to \$CVSROOT."
+	exit
+}
+
+process_args () {
+	while getopts "?p:c:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			p)
+				SRT_PROJECT=$OPTARG
+				;;
+			c)
+				CVSROOT=$OPTARG
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	dist=$1
+}
+
+fail () {
+	echo "$1"
+	echo "$prog_name failed."
+	exit 1
+}
+actions () {
+
+
+
+	if [ -f "$dist" ]; then
+		fail "The directory `/bin/pwd`/$dist already exists."
+	fi
+	echo "Creating distribution \"$dist\"."
+	mkdir $dist
+	mkdir $dist/packages
+	mkdir $dist/releases
+	mkdir $dist/srt
+
+# Create project file
+	echo ""
+	if [ "$SRT_PROJECT" = "" ]; then
+		echo "You must set the SRT_PROJECT variable in the file $dist/PROJECT"
+		SRT_PROJECT=not_set
+	else
+		echo "Using \"$SRT_PROJECT\" as the default project. You can change it"
+		echo "by editing the file \"$dist/project\"."
+	fi
+	echo "$SRT_PROJECT" > $dist/srt/project
+
+# Create cvsroot file
+	echo ""
+	if [ "$CVSROOT" = "" ]; then
+		echo "You should set the CVSROOT variable in the file $dist/cvsroot"
+	else
+		echo "Using \"$CVSROOT\" as the default CVSROOT. You can change it"
+		echo "by editing the file \"$dist/cvsroot\"."
+	fi
+	echo "$CVSROOT" > $dist/srt/cvsroot
+
+# Create srt.csh file
+	echo "# Edit only the following line" > $dist/srt/srt.csh
+	echo "setenv SRT_DIST `/bin/pwd`/$dist" >> $dist/srt/srt.csh
+	echo "" >> $dist/srt/srt.csh
+	echo 'setenv DEFAULT_SRT_DIST $SRT_DIST' >> $dist/srt/srt.csh
+	echo "alias srt_setup source '\`srt_environment -X -c \!*\`'" >> $dist/srt/srt.csh
+	echo 'setenv PATH $SRT_DIST/releases/boot/bin/generic:$PATH' >> $dist/srt/srt.csh
+	
+# Create srt.sh file
+	echo "# Edit only the following line" > $dist/srt/srt.sh
+	echo "SRT_DIST=`/bin/pwd`/$dist" >> $dist/srt/srt.sh
+	echo "" >> $dist/srt/srt.sh
+	echo "export SRT_DIST" >> $dist/srt/srt.sh
+	echo 'DEFAULT_SRT_DIST=$SRT_DIST' >> $dist/srt/srt.sh
+	echo 'export DEFAULT_SRT_DIST' >> $dist/srt/srt.sh
+	echo "srt_setup () {" >> $dist/srt/srt.sh
+	echo '        . `srt_environment -X "$@"`' >> $dist/srt/srt.sh
+	echo "}" >> $dist/srt/srt.sh
+	echo 'PATH=$SRT_DIST/releases/boot/bin/generic:$PATH' >> $dist/srt/srt.sh
+	echo "export PATH" >> $dist/srt/srt.sh
+
+	echo "You should now use newpkg for SoftRelTools, then create a boot release."
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=newdist
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*
+
+

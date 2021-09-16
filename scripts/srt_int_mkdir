@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# srt_int_mkdir
+
+script_defaults () {
+	prog_name="srt_int_mkdir"
+	expected_args=1
+}
+
+usage () {
+	echo "usage: srt_int_mkdir [options] directory"
+	echo 
+	echo "srt_int_mkdir provides a platform-independent recursive mkdir"
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	exit
+}
+
+process_args () {
+	while getopts "?-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			? | help)
+				usage
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+	dir_name=$1
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	super_dir=""
+	pieces=`echo $dir_name | sed -e "s@/@ @g"`
+	for piece in $pieces
+	do
+		super_dir="$super_dir/$piece"
+		if [ ! -d "$super_dir" ]; then
+			if [ -h "$super_dir" ]; then
+				# It's a link; make the directory it points to
+				link_target=`ls -l $super_dir | sed -e 's/.*> //'`
+				# We are invoking ourself. Check to make sure we
+				# don't go into an infinite loop.
+				if [ -z "$srt_int_mkdir_insanity" ]; then
+					srt_int_mkdir_insanity=0
+				else
+					srt_int_mkdir_insanity=`expr $srt_int_mkdir_insanity + 1`
+				fi
+				if [ "$srt_int_mkdir_insanity" -gt "2" ]; then
+					fail "Confused by symbolic links"
+				fi
+				srt_int_mkdir "$link_target"
+			else
+				# Not a link; just create the directory.
+                if [ ! -d "$super_dir" ]; then
+				    message=`mkdir $super_dir 2>&1`
+					status=$?
+                fi
+			fi
+			if [ ! -d "$super_dir" ]; then
+				echo $message 1>&2
+				fail "Could not create directory $super_dir."
+			fi
+		fi
+	done
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+main $*
+
+	

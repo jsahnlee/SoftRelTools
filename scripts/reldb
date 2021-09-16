@@ -1,0 +1,166 @@
+#!/bin/sh
+
+# srt_int_querypkg
+
+script_defaults () {
+	prog_name="reldb"
+	action=query
+	max_expected_args=1
+    release=base
+}
+
+usage () {
+	echo "usage: reldb [options] [package/file]"
+	echo 
+	echo "reldb maintains and queries a database of products in a release"
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -u, --update : update the database. If <package> is given,"
+    echo "                   only update the entry for <package>"
+	echo "    -b, --base: use base release (default)"
+	echo "    -t, --test: use test release"
+	echo "    -q, --query: returns matches for <file> (default)"
+	exit
+}
+
+process_args () {
+	while getopts "?uq-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			u | update)
+				action=update
+				;;
+			q | query)
+				action=query
+				;;
+			b | base)
+				release=base
+				;;
+			t | test)
+				release=test
+				;;
+			*)	usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -gt "$max_expected_args" ]; then
+		usage
+	fi
+	
+	if [ "$#" = "1" ]; then
+		argument=$1
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+location_defaults () {
+    if [ "$release" = "base" ]; then
+        release_dir=$SRT_PUBLIC_CONTEXT
+    else
+        release_dir=$SRT_PRIVATE_CONTEXT
+    fi
+    if [ -z "$reldb_file" ]; then
+        reldb_file=$release_dir/srt_products.db
+    fi
+}
+
+query_package () {
+    local_package=$1
+    output_file=$2
+    products=`srt_int_querypkg --products $local_package`
+    # srt_int_querypkg always lists products as though they would
+    # be in the current private context. Strip the context information.
+    if [ "$SRT_PRIVATE_CONTEXT" = "." ]; then
+        SRT_PRIVATE_CONTEXT_mangled='\.'
+    else
+        SRT_PRIVATE_CONTEXT_mangled=$SRT_PRIVATE_CONTEXT
+    fi
+    for product in $products
+    do
+        short_product=`echo $product | \
+            sed -e "s%$SRT_PRIVATE_CONTEXT_mangled/%%"`
+        echo "`basename $local_package` : $short_product" >> $output_file
+    done
+    
+}
+
+list_packages () {
+    # This is on one line because it is taken directly from GNUmakefile.main
+    for v in $release_dir/*[!~]; do if test -r $v/GNUmakefile; then echo $v; fi; done
+}
+
+update_db () {
+    package=$1
+    if [ -z "$package" ]; then
+        # build a new database for all the packages
+        /bin/rm -f $reldb_file
+        for package in `list_packages`
+        do
+            query_package $package $reldb_file
+        done
+    else
+        # query a single package and replace old entries for the package
+        tmpfile="$reldb_file.tmp.$$"
+        /bin/rm -f $tmpfile
+        query_package "$release_dir/$package" "$tmpfile"
+        if [ -f "$tmpfile" ]; then
+            tmpfile2=$reldb_file.tmp2.$$
+            /bin/rm -f $tmpfile2
+            touch $reldb_file # in case there was no reldb_file
+            grep -v "^$package : " $reldb_file > $tmpfile2
+            /bin/rm -f $reldb_file
+            cat $tmpfile $tmpfile2 > $reldb_file
+            /bin/rm -f $tmpfile $tmpfile2
+        fi
+    fi
+}
+            
+query_db () {
+    if [ ! -f "$reldb_file" ]; then
+        fail "No database exists. Use reldb --update to create it."
+    fi
+    pattern=$1
+    grep ".* : .*$pattern" "$reldb_file"
+}
+
+actions () {
+    if [ "$action" = "update" ]; then
+        update_db $argument
+    fi
+    if [ "$action" = "query" ]; then
+        query_db $argument
+    fi
+}
+
+
+main () {
+	if [ -f "$HOME/.srtrc" ]; then
+		. "$HOME/.srtrc"
+    	fi
+	script_defaults
+	process_args $*
+    location_defaults
+	actions
+}
+
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+
+main $*

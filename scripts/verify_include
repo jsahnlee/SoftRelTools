@@ -1,0 +1,134 @@
+#!/bin/sh
+
+# srt_int_querypkg
+
+script_defaults () {
+	prog_name="verify_include"
+	max_expected_args=1
+        package_argument=""
+        verbose=false
+        quiet=false
+        fix=false
+}
+
+usage () {
+	echo "usage: verify_include [options] [package]"
+	echo 
+	echo "verify_include verifies the links from the include directory"
+        echo "to the package include area. If no package name is given,"
+        echo "verify all packages in the release."
+	echo
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -v, --verbose: print detailed information about each package"
+	echo "    -q, --quiet: only print warnings and problems"
+        echo "    -f, --fix: attempt to fix problem links"
+	exit
+}
+
+process_args () {
+	while getopts "?uq-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			v | verbose)
+				verbose=true
+				;;
+			q | quiet)
+				quiet=true
+				;;
+			f | fix)
+				fix=true
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -gt "$max_expected_args" ]; then
+		usage
+	fi
+	
+	if [ "$#" = "1" ]; then
+		package_argument=$1
+	fi
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+list_packages () {
+    # This is on one line because it is taken directly from GNUmakefile.main
+    for v in $release_dir/*[!~]; do if test -r $v/GNUmakefile; then echo $v; fi; done
+}
+
+actions() {
+	release_dir=$SRT_PRIVATE_CONTEXT
+        if [ -z "$package_argument" ]; then
+        	package_paths=`list_packages`
+        else
+        	package_paths="$SRT_PRIVATE_CONTEXT/$package_argument"
+        fi
+        for package_path in $package_paths
+        do
+        	bad_include=false
+                bad_link=false
+                found_error=false
+		# Check
+        	package=`basename $package_path`
+                correct_include=`srt_int_querypkg --include $package | sed -e 's% *$%%'`
+                if [ ! -d $SRT_PRIVATE_CONTEXT/$correct_include ]; then
+			bad_include=true
+                        found_error=true
+                fi
+		existing_link=`ls -l include/$package | sed -e 's%.*-> *%%'`
+                existing_include=`echo $existing_link | sed -e 's%../%%'`
+                if [ ! "$correct_include" = "$existing_include" ]; then
+                	bad_link=true
+                        found_error=true
+                fi
+                # Report and (possibly) fix
+                if [ $found_error = false ]; then
+                		if [ $quiet = false ]; then
+               				echo "Package $package: OK"
+                               	fi
+                else
+                	echo "Package $package:"
+                fi
+                if [ $verbose = true ]; then
+                	echo "    include directory is $correct_include"
+                fi
+		if [ $bad_include = true ]; then
+                       	echo "  Warning: directory $SRT_PRIVATE_CONTEXT/$correct_include is not a directory"
+                fi
+                if [ $bad_link = true ]; then
+                	echo "  Problem: link is not correct"
+	                echo "    existing link is $existing_link to $existing_include"
+                        if [ $fix = true ]; then
+                        	echo "  Attempting to fix with newpkg $package"
+                                newpkg $package
+                        fi
+                fi
+         done
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+        . "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+
+main $*

@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# srt_layer_init
+
+script_defaults () {
+	expected_args=0
+}
+
+usage () {
+	echo "usage: srt_layer_init"
+	echo 
+	echo "srt_layer_init initializes the link to SoftRelTools"
+    echo "and SRT_\$SRT_PROJECT in a layered release."
+	echo 
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	exit 1
+}
+
+process_args () {
+	while getopts "?-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi	
+}
+
+fail () {
+	echo "$1" >&2
+	echo "$prog_name failed." >&2
+	exit 1
+}
+
+actions () {
+	if [ -f "GNUmakefile" ]; then
+		count=`grep -c srt_internal_top_of_testrel GNUmakefile`
+		if [ "$count" = "1" ]; then
+			in_rel=true
+		else
+			in_rel=false
+		fi
+	else
+		in_rel=false
+	fi
+	if [ ! "$in_rel" = "true" ]; then
+		fail "Please cd to the top of a base release to initialize a layered release."
+	fi
+
+    srt_layer_link `pwd`/include/SoftRelTools
+    
+    # SoftRelTools is required, but SRT_$SRT_PROJECT is optional
+    srt_layer_link --quiet `pwd`/include/SRT_$SRT_PROJECT
+
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+prog_name=srt_layer_init
+if [ -f "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PRIVATE_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+elif [ -f "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name" ]; then
+	. "$SRT_PUBLIC_CONTEXT/SRT_$SRT_PROJECT/special/scripts/$prog_name"
+fi
+
+main $*

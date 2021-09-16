@@ -1,0 +1,23 @@
+#!/bin/sh
+
+echo "Warning! This script should only be run from the SoftRelTools/admin"
+echo "directory."
+if [ -d "srt_distribution" ]; then
+	echo "srt_distribution directory already exists."
+	echo "Please delete it before running create_boot."
+	exit 1
+fi
+newdist srt_distribution
+cp ../install/srt/install srt_distribution/srt
+. srt_distribution/srt/srt.sh
+srt_setup SRT_LOCAL=`pwd`/srt_distribution/releases/boot SRT_BASE_RELEASE=boot
+newpkg --production -d :pserver:anonymous@srtcvs.fnal.gov:/srtcvs SoftRelTools
+newver --development --head --quiet SoftRelTools
+newrel --boot
+cd srt_distribution/releases/boot
+addpkg --production --head SoftRelTools
+gmake
+cd ../../..
+tar -cf srt_distribution.tar srt_distribution
+cd srt_distribution/releases
+tar -cf ../../boot_release.tar boot
