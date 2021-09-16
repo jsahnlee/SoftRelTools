@@ -1,0 +1,120 @@
+# Microsoft Developer Studio Project File - Name="${project_name}" - Package Owner=<4>
+# Microsoft Developer Studio Generated Build File, Format Version 5.00
+# ** DO NOT EDIT **
+
+# TARGTYPE "Win32 (x86) Static Library" 0x0104
+
+CFG=${project_name} - Win32 Debug
+!MESSAGE This is not a valid makefile. To build this project using NMAKE,
+!MESSAGE use the Export Makefile command and run
+!MESSAGE 
+!MESSAGE NMAKE /f "${project_name}.mak".
+!MESSAGE 
+!MESSAGE You can specify a configuration when running NMAKE
+!MESSAGE by defining the macro CFG on the command line. For example:
+!MESSAGE 
+!MESSAGE NMAKE /f "${project_name}.mak" CFG="${project_name} - Win32 Debug"
+!MESSAGE 
+!MESSAGE Possible choices for configuration are:
+!MESSAGE 
+!MESSAGE "${project_name} - Win32 Release" (based on "Win32 (x86) Static Library")
+!MESSAGE "${project_name} - Win32 Debug" (based on "Win32 (x86) Static Library")
+!MESSAGE 
+
+# Begin Project
+# PROP Scc_ProjName ""
+# PROP Scc_LocalPath ""
+CPP=cl.exe
+
+!IF  "$(CFG)" == "${project_name} - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "${working_dir_release}"
+# PROP BASE Intermediate_Dir "${working_dir_release}"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "${working_dir_release}"
+# PROP Intermediate_Dir "${working_dir_release}"
+# PROP Target_Dir ""
+# ADD BASE CPP ${cpp_flags_release}
+# ADD CPP ${cpp_flags_release}
+${if has_fortran_files}# ADD BASE F90 ${f_flags_release}
+# ADD F90 ${f_flags_release}
+${end}BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+# Begin Custom Build - Copy library to proper location
+InputPath=.\${working_dir_release}\${target_filename}
+InputName=${target_name}
+SOURCE=$(InputPath)
+
+"${final_target}" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy $(InputPath) ${final_target}
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "${project_name} - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "${working_dir_debug}"
+# PROP BASE Intermediate_Dir "${working_dir_debug}"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "${working_dir_debug}"
+# PROP Intermediate_Dir "${working_dir_debug}"
+# PROP Target_Dir ""
+# ADD BASE CPP ${cpp_flags_debug}
+# ADD CPP ${cpp_flags_debug}
+${if has_fortran_files}# ADD BASE F90 ${f_flags_debug}
+# ADD F90 ${f_flags_debug}
+${end}BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+# Begin Custom Build - Copy library to proper location
+InputPath=.\${working_dir_debug}\${target_filename}
+InputName=${target_name}
+SOURCE=$(InputPath)
+
+"${final_target}" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy $(InputPath) ${final_target}
+
+# End Custom Build
+
+!ENDIF 
+
+# Begin Target
+
+# Name "${project_name} - Win32 Release"
+# Name "${project_name} - Win32 Debug"
+# Begin Group "Source Files"
+# PROP Default_Filter "*.cpp"
+${source_file_list}
+# End Group
+
+# Begin Group "Header Files"
+# PROP Default_Filter "*.h;*.hpp"
+${header_file_list}
+# End Group
+
+# Begin Group "Compiler Option Files"
+# PROP Default_Filter "*.compiler_opt"
+${compiler_option_file_list}
+# End Group
+
+# Begin Group "Special Command Files"
+# PROP Default_Filter "*.bat"
+${compiler_special_cmd_file_list}
+# End Group
+
+# End Target
+# End Project

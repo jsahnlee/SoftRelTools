@@ -1,0 +1,131 @@
+#!/bin/sh
+
+for_real=true
+srt2anoncvs=:pserver:anonymous@srtcvs.fnal.gov:/srtcvs
+
+doit () {
+    if [ "$for_real" = "true" ]; then
+        echo $*
+        $*
+    else
+        echo $*
+    fi
+}
+
+getreply () {
+    echo $1 1>&2
+    echo "(Default is $2)" 1>&2
+    read reply
+    if [ -z "$reply" ]; then
+        echo "$2"
+    else
+        echo "$reply"
+    fi
+}
+
+save_answers () {
+    echo "Saving defaults in $defaults_file"
+    /bin/rm -f $defaults_file
+    echo "old_project=$project" >> $defaults_file
+    echo "old_cvsroot=$cvsroot" >> $defaults_file
+    echo "old_dist_loc=$dist_loc" >> $defaults_file
+    echo "old_release=$release" >> $defaults_file
+}
+
+
+read_old_answers () {
+    if [ -f "$defaults_file" ]; then
+        . $defaults_file
+    fi
+}
+
+script_location=`dirname $0`
+defaults_file=$script_location/bootstrap.defaults
+read_old_answers
+cd $script_location
+script_location=`/bin/pwd`
+
+srt_dir=$script_location/..
+SOFTRELTOOLS_DIR=$srt_dir
+export SOFTRELTOOLS_DIR
+
+PATH=$srt_dir/scripts:$PATH
+export PATH
+
+project=`getreply "Enter a project name. Can be anything. Examples are D0, CDF, ODS." "$old_project"`
+echo "project is $project"
+echo
+
+if [ -z "$old_cvsroot" ]; then
+    old_cvsroot=$CVSROOT
+fi
+cvsroot=`getreply "Enter the default CVSROOT." "$old_cvsroot"`
+echo "CVSROOT is $cvsroot"
+echo
+
+
+if [ -z "$old_dist_loc" ]; then
+    oldwd=`/bin/pwd`
+    cd $srt_dir/..
+    old_dist_loc=`/bin/pwd`/dist
+    cd $oldwd
+fi
+dist_loc=`getreply "Enter the pathname for the new distribution" "$old_dist_loc"`
+echo "distribution location is $dist_loc"
+echo
+
+cd `dirname $dist_loc`
+if [ -d "$dist_loc" ]; then
+    echo "Directory $dist_loc already exists."
+    echo "Please rm -r $dist_loc"
+    save_answers
+    exit 1
+fi
+
+if [ -z "$old_release" ]; then
+    old_release=current
+fi
+release=`getreply "Enter the name for the default release." "$old_release"`
+echo "release is $release"
+echo
+
+
+echo
+echo "Starting automatic installation..."
+echo "========================================================"
+doit newdist -p $project -c $cvsroot `basename $dist_loc`
+. $dist_loc/srt/srt.sh
+srt_setup
+newpkg --production -d $srt2anoncvs SoftRelTools
+newpkg --production -d $srt2anoncvs Hello
+newpkg --production -d $srt2anoncvs BinExamples
+
+cd $SRT_DIST/releases
+doit newrel -p --empty $release
+cd $release
+srt_setup SRT_BASE_RELEASE=$release
+$script_location/srt_cvs_login
+addpkg --head --production SoftRelTools
+addpkg --head --production Hello
+addpkg --head --production BinExamples
+mkdir ups
+cp SoftRelTools/templates/srt_release.table.example ups/srt_release.table
+
+echo
+echo
+echo "========================================================"
+echo "Automatic installation done."
+echo
+echo "You need to declare SoftRelTools to ups."
+echo "Suggested declaration:"
+echo "  ups declare -c -m SoftRelTools.table -f NULL -r $dist_loc/packages/SoftRelTools/HEAD SoftRelTools head"
+echo
+echo "You also need to edit the file "
+echo "  $dist_loc/releases/$release/ups/srt_release.table"
+echo "then declare the release to ups."
+echo "Suggested declaration:"
+echo "  ups declare -c -m srt_release.table -f NULL -r $dist_loc/releases/$release srt_release $release"
+echo
+echo
+
+save_answers

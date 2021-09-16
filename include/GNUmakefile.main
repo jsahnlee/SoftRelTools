@@ -1,0 +1,263 @@
+# This goes first to ensure that "all" is the default target
+all:
+
+# GNUmakefile.main
+# This file is included by the release-level GNUmakefile for SoftRelTools
+
+-include SRT_$(SRT_PROJECT)/special/pre_GNUmakefile.main
+-include SRT_SITE/special/pre_GNUmakefile.main
+
+# common.mk contains elements common to GNUmakefile.main and standard.mk
+include SoftRelTools/common.mk
+
+# Warn the user if s/he is has setup SRT with a base release different from
+# the contents of .base_release
+rel_base_release:=$(shell cat .base_release 2>/dev/null)
+# (Base releases may be missing the .base_release file. Ignore this case.) 
+ifeq ("$(rel_base_release)","")
+    rel_base_release:=$(SRT_BASE_RELEASE)
+endif
+ifneq ("$(rel_base_release)","$(SRT_BASE_RELEASE)")
+   srt_echo:=$(shell echo "Warning! .base_release != $(SRT_BASE_RELEASE)">&2)
+   srt_echo:=$(shell echo "Enter ">&2)
+   srt_echo:=$(shell echo "    srt_setup SRT_BASE_RELEASE=$(rel_base_release)">&2)
+   srt_echo:=$(shell echo "to fix this problem">&2)   
+endif
+
+# If we are here, the user intended SRT_LOCAL to be the current directory.
+# Adjust accordingly.
+# N.B. If SRT_LOCAL was set to ., it was adjusted in preamble.mk
+ifneq ("$(shell pwd)","$(SRT_PRIVATE_CONTEXT)")
+    ifneq ($(VERBOSE),)
+        debug:=$(shell echo "Overriding SRT_LOCAL setting" >&2 )
+    endif
+    SRT_PRIVATE_CONTEXT=$(shell pwd)
+    export SRT_PRIVATE_CONTEXT
+    SRT_LOCAL=$(SRT_PRIVATE_CONTEXT)
+    export SRT_LOCAL
+endif
+
+.SUFFIXES:
+.PHONY: all include lib bin tbin clean codegen
+
+# The packages to be built are listed in the variable packages.
+# packages can be overriden by defining "packages" in 
+# SRT_XXX/special/pre_GNUmakefile.main
+
+# If the variable packages is not defined, the variable prebuild_packages
+# can be defined to hold a (list of) package(s) to be built before the rest.
+# If any of the packages in prebuild_packages do not exist in the release they
+# will simply be ignored.
+
+# n.b.: the prebuild_mechanism is a workaround to avoid defining an extra stage
+# purely for the benefit of a package or two. It is not a substitute for general
+# inter-package dependency management.
+
+# We know ISOcxx needs to be built as early as possible.
+prebuild_packages := ISOcxx $(prebuild_packages)
+ifndef packages
+    found_packages := $(shell /bin/sh -c "for v in *[!~]; do if test -r \$$v/GNUmakefile; then echo \$$v; fi; done")
+    first_packages := $(filter $(prebuild_packages),$(found_packages))
+    rest_packages := $(filter-out $(prebuild_packages),$(found_packages))
+    packages := $(first_packages) $(rest_packages)
+endif
+
+# The standard way to pass a stage (eg, lib)  to packages. Note that this
+# macro is modified if the PARALLEL_TOP option is set.
+define pass-to-packages
+@echo "<**"$@"**>"
+@MAKEFLAGS=$(subdir_makeflags); export MAKEFLAGS ;\
+  list_to_do="$(filter-out $(skip_$@),$(packages))";\
+  if [ ! -z "$$list_to_do" ]; then \
+    for var in $$list_to_do;\
+      do \
+      $(MAKE) $$var.$@ PACKAGE_fromabove=$$var ;\
+      done ;\
+  fi
+endef
+
+define pass-package.stage
+@echo "<**"$(subst .,,$(suffix $@))"**> $(basename $@)"
+MAKEFLAGS=$(subdir_makeflags); export MAKEFLAGS ;\
+    $(MAKE) -C $(notdir $(basename $@)) $(subst .,,$(suffix $@)) \
+    $(parallel_flags) PACKAGE_fromabove=$(notdir $(basename $@)) \
+    $(log_dir_redirect)
+endef
+
+# Support for building packages in parallel. There is another section
+# devoted to PARALLEL_TOP near the end of this file.
+ifdef PARALLEL_TOP
+ifdef all_deps_parallel
+    all_deps = $(all_deps_parallel)
+endif
+$(sort $(foreach stage,$(all_stages),$(foreach var,$(packages),$(var).$(stage)))) : 
+	@$(pass-package.stage) ; exit 0
+USE_LOG_DIR:=true
+PREVIOUS_STAGES:=true
+$(all_stages): % : $(foreach p,$(packages),$p.%)
+define pass-to-packages
+@:
+endef
+
+endif #PARALLEL_TOP
+
+# Parallel build support **within** packages
+ifdef PARALLEL
+    parallel_flags=-j
+    ifdef MAXLOAD
+        parallel_flags+=-l $(MAXLOAD)
+    endif
+endif #PARALLEL
+
+# Support for logging each package.stage to a separate file
+ifndef LOG_DIR
+    LOG_DIR:=build-logs
+endif
+ifdef USE_LOG_DIR
+log_dir_redirect = > $(LOG_DIR)/$@ 2>&1 
+$(foreach stage,$(all_stages),$(foreach var,$(packages),$(var).$(stage))) : $(LOG_DIR)
+$(LOG_DIR):
+	@srt_int_mkdir $(SRT_PRIVATE_CONTEXT)/$(LOG_DIR)
+endif #LOG_DIR
+
+log-clean:
+	@if [ ! -z "$(LOG_DIR)" ]; then  rm -rf $(LOG_DIR)/* ; fi
+
+
+ifeq ($(SRT_SUPER),true)
+    include SoftRelTools/srt_super.mk
+endif
+
+all: $(all_deps)
+
+extra_flags:= $(MAKEFLAGS)
+ifneq ($(VERBOSE),)
+  extra_flags +=
+else
+  ifneq ($(VDIR),)
+    extra_flags += --print-directory
+  else
+    extra_flags += --no-print-directory
+  endif
+endif
+MAKEFLAGS = $(extra_flags)
+subdir_makeflags :="$(extra_flags) -I$(SRT_PRIVATE_CONTEXT)/include/SRT_$(SRT_PROJECT) -I$(SRT_PUBLIC_CONTEXT)/include/SRT_$(SRT_PROJECT) -I$(SRT_PRIVATE_CONTEXT)/include -I$(SRT_PUBLIC_CONTEXT)/include $(MAKEOVERRIDES)"
+
+
+codegen:
+	$(pass-to-packages)
+
+include:
+	$(pass-to-packages)
+
+lib:
+	$(pass-to-packages)
+
+libobjects:
+	$(pass-to-packages)
+
+bin:
+	$(pass-to-packages)
+
+tbin:
+	$(pass-to-packages)
+
+clean:
+	@if [ ! -z "$(SRT_SUBDIR)" ] ; then \
+        rm -rf lib/$(SRT_SUBDIR)/* ; \
+        rm -rf tmp/$(SRT_SUBDIR)/* ; \
+        for dir in $(bin_dirlist);\
+        do \
+            if  [ ! "$$dir" = "/" ]; then \
+                rm -rf $$dir* ; \
+            fi;\
+        done;\
+    fi
+	@rm -rf man/*
+    
+    
+depend:
+	$(pass-to-packages)
+
+test:
+	$(pass-to-packages)
+
+echo_%:
+	$(pass-to-packages)
+	
+sortecho_%:
+	$(pass-to-packages)
+
+installdirs:
+	echo "SoftRelTools no longer needs gmake installdirs."
+
+$(foreach var,$(packages),$(var).%) : 
+	@$(pass-package.stage)
+
+ifndef checked_sublayers
+    export sublayers:=$(shell test -d sublayers && (cd sublayers;/bin/ls -1))
+    export checked_sublayers := true
+endif
+
+ifdef sublayers
+layer_inc_deps:=$(foreach sublayer,$(sublayers),$(shell /bin/ls $(SRT_DIST)/releases/$(sublayer)/include))
+layer_inc_deps:=$(addprefix $(SRT_PRIVATE_CONTEXT)/include/,$(layer_inc_deps))
+layer_links+=$(layer_inc_deps)
+
+layer_bin_deps:=$(foreach sublayer,$(sublayers), $(shell /bin/ls $(SRT_DIST)/releases/$(sublayer)/bin/$(SRT_SUBDIR)))
+layer_bin_deps:=$(addprefix $(SRT_PRIVATE_CONTEXT)/bin/$(SRT_SUBDIR)/,$(layer_bin_deps))
+layer_links+=$(layer_bin_deps)
+
+layer_lib_deps:=$(foreach sublayer,$(sublayers), $(shell /bin/ls $(SRT_DIST)/releases/$(sublayer)/lib/$(SRT_SUBDIR)))
+layer_lib_deps:=$(addprefix $(SRT_PRIVATE_CONTEXT)/lib/$(SRT_SUBDIR)/,$(layer_lib_deps))
+layer_links+=$(layer_lib_deps)
+
+layer_tmp_deps:=$(foreach sublayer,$(sublayers), $(shell /bin/ls $(SRT_DIST)/releases/$(sublayer)/tmp/$(SRT_SUBDIR)))
+layer_tmp_deps:=$(addprefix $(SRT_PRIVATE_CONTEXT)/tmp/$(SRT_SUBDIR)/,$(layer_tmp_deps))
+layer_links+=$(layer_tmp_deps)
+
+$(all_deps) : layer-initial
+clean: layer-clean
+endif
+
+layer-initial: $(layer_links)
+
+layer-clean:
+	@/bin/rm -f $(layer_links)
+	@srt_layer_init
+	
+$(sort $(layer_links)):
+	@srt_layer_link $@
+
+# Support for building all stages up to the requested stage
+ifdef PREVIOUS_STAGES
+-include tmp/$(SRT_SUBDIR)/SoftRelTools/stage-depends.mk
+
+tmp/$(SRT_SUBDIR)/SoftRelTools/stage-depends.mk:
+	@srt_int_mkdir $(SRT_PRIVATE_CONTEXT)/$(@D);\
+    (for dep in $(all_deps); do \
+    echo "$${dep}_previous_stage:=\$$(shell for i in \$$(all_deps) ; do test \"\$$\$$i\" = \"$$dep\" && break ; prev=\$$\$$i ; done ; echo \$$\$$prev )" ;\
+    echo "$${dep}: \$$($${dep}_previous_stage)";\
+    done) > $@
+endif #PREVIOUS_STAGES
+
+# This is the second fragment supporting PARALLEL_TOP. See above.
+ifdef PARALLEL_TOP
+-include tmp/$(SRT_SUBDIR)/SoftRelTools/parallel-depends.mk
+
+vpath SoftRelTools/include/GNUmakefile.main $(SRT_PRIVATE_CONTEXT) $(SRT_PUBLIC_CONTEXT)
+tmp/$(SRT_SUBDIR)/SoftRelTools/parallel-depends.mk: SoftRelTools/include/GNUmakefile.main
+	@srt_int_mkdir $(SRT_PRIVATE_CONTEXT)/$(@D);\
+    (for dep in $(all_deps); do \
+    echo "\$$(foreach p,\$$(packages),\$$p.$${dep}):\$$($${dep}_previous_stage)";\
+    echo "\$$(foreach p,\$$(rest_packages),\$$p.$${dep}):\$$(foreach p,\$$(first_packages),\$$p.$${dep})";\
+    done) > $@
+endif
+
+mainecho_%:
+	@echo "$(subst mainecho_,,$@)=$($(subst mainecho_,,$@))"
+	@echo "origin $(subst mainecho_,,$@) returns $(origin $(subst mainecho_,,$@))"
+
+-include SRT_$(SRT_PROJECT)/special/post_GNUmakefile.main
+-include SRT_SITE/special/post_GNUmakefile.main
+

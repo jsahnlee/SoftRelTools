@@ -1,0 +1,82 @@
+.ad l
+.TH lnkpkg 1 "April 27, 1999"
+
+.SH NAME
+.HP 10
+.B lnkpkg 
+\- Links a package to a release. It is equivalent
+to calling addpkg --link
+
+.SH SYNOPSIS
+.HP 10
+.B lnkpkg
+.B [-?, --help]
+.B [-t, --test]
+.B [-p, --production]
+.B [-h, --head]
+
+.SH DESCRIPTION
+\fBlnkpkg\fR creates symbolic links from a release area 
+(created under SoftRelTools) to a package in the 
+distribution area.
+
+.SH OPTIONS
+.PP
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -t, --test
+.RS 8
+ Link a package in a test release. This is the
+ default behavior.
+.RE
+
+.PP
+.B -p, --production
+.RS 8
+ Link a package in a production release.
+.RE
+
+.PP
+.B -h, --head
+.RS 8
+ Link the head version of <package>.
+.RE
+
+
+.SH ARGUMENTS
+.PP
+.B <package name>
+.RS 8
+Name of the package to which the link should point.
+.RE
+.PP 
+.B [<version string>]
+.RS 8
+Optional version of the package to which the link should point.
+.RE
+
+.SH EXAMPLE
+To create links from a test release in the current directory to the 
+\fIgeom\fR package version V00-00-06:
+.RS
+.ft B
+.sp .5
+.nf
+example% lnkpkg geom V00-00-06
+.fi
+.ft R
+.RE
+.LP
+
+.SH "SEE ALSO"
+addpkg
+
+.SH AUTHOR
+Glenn Cooper. (gcooper@fnal.gov)
+Updated for SoftRelTools version 2 by James
+Amundson. (amundson@fnal.gov)
+

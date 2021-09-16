@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ -f "$HOME/.cvspass" ]; then
+    if [ ! "`grep -c :pserver:anonymous@srtcvs.fnal.gov:/srtcvs $HOME/.cvspass`" = 0 ]; then
+        exit
+    fi
+fi
+echo ':pserver:anonymous@srtcvs.fnal.gov:/srtcvs Ay=0=h<Z' >> $HOME/.cvspass

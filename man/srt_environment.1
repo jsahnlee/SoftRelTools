@@ -1,0 +1,81 @@
+.ad l
+.TH srt_environment 1 "April 27, 1999"
+.SH NAME
+.HP 10
+.B srt_setup
+\- Setup SoftRelTools environment variables.
+.HP 10
+.B srt_environment
+\- Show SoftRelTools environment variables.
+
+
+.SH SYNOPSIS
+.HP 10
+.B srt_setup
+.B [-?, --help]
+.B [-d, --defaults]
+.B [-a, --auto-local]
+.B [VAR1=value1 VAR2=value2 ...]
+.HP 10
+.B srt_environment
+.B [-?, --help]
+
+.SH DESCRIPTION
+
+srt_setup sets the necessary environment
+variables for SoftRelTools. srt_environment
+displays the variables. srt_setup is actually an
+alias that sources the output of srt_environment
+when called with internal options.
+
+The srt_setup alias is provided by
+$SRT_DIST/srt/srt.(c)sh.
+
+.SH System defaults
+
+srt_setup and srt_environment source the file $SRT_DIST/srt/srt_envrc.
+This allows the librarian to set defaults for an entire project. For
+example, the srt_envrc might contain the lines
+
+DEFAULT_SRT_CXX=KCC_3_3
+
+DEFAULT_SRT_BASE_RELEASE=development
+
+Since the file is sourced by the shell script, it can contain any shell
+commands. Only the resulting value of the variables matter.
+
+.SH User defaults
+
+srt_setup and srt_environment also source the file $HOME/.srt_envrc.
+(Note the presence of a leading dot in the user file, but not in the
+system file.) This allows the user to set his/her own defaults. Again,
+the file is sourced by the shell script, so it can contain any shell
+commands.
+
+.SH OPTIONS
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -d, --defaults
+.RS 8
+ Set variables to defaults. The defaults are used
+ automatically the first time srt_setup is called.
+.RE
+
+.PP
+.B -a, --auto-local
+.RS 8
+ Automatically set local context to the current
+ test release.
+.RE
+
+.SH FILES
+$SRT_DIST/srt/srt_envrc, $HOME/.srt_envrc
+
+.SH AUTHOR
+James Amundson. (amundson@fnal.gov)
+
+

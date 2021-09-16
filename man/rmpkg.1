@@ -1,0 +1,43 @@
+.ad l
+.TH rmpkg 1 "April 27, 1999"
+.SH NAME
+.HP 10
+.B rmpkg
+\- Remove a package from a release.
+
+.SH SYNOPSIS
+.HP 10
+.B rmpkg
+.B [-H, --help]
+.B [-i, --interactive]
+.B [-f, --force]
+.B <package>
+
+.SH DESCRIPTION
+rmpkg removes a package from a release. It removes
+the package directory, the include link, and the
+package products.
+
+.SH OPTIONS
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -i, --interactive
+.RS 8
+ Use interactive mode for rm.
+.RE
+
+.PP
+.B -f, --force
+.RS 8
+ Use force mode for rm.
+.RE
+
+
+.SH AUTHOR
+James Amundson. (amundson@fnal.gov)
+
+

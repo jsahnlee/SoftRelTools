@@ -1,0 +1,48 @@
+.ad l
+.TH newdist 1 "April 27, 1999"
+.SH NAME
+.HP 10
+.B newdist
+\- Creates a new distribution directory.
+
+.SH SYNOPSIS
+.HP 10
+.B newdist
+.B [-?, --help]
+.B [-p <project>]
+.B [-c <cvsroot>]
+.B <distname>
+
+.SH DESCRIPTION
+Creates an entirely new distribution.
+
+.SH OPTIONS
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -p <project>
+.RS 8
+ Sets the project. Defaults to $SRT_PROJECT.
+.RE
+
+.PP
+.B -c <cvsroot>
+.RS 8
+ Sets the cvs repository. Defaults to $CVSROOT.
+.RE
+
+
+.SH ARGUMENTS
+.PP
+.B <distname>
+.RS 8
+Name of the new directory.
+.RE
+
+.SH AUTHOR
+James Amundson. (amundson@fnal.gov)
+
+

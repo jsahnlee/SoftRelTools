@@ -1,0 +1,31 @@
+#
+# Template to be used with a test
+#
+
+#
+# Test out simple var substitution
+#
+
+${one_line}
+
+This is a second line ${second_line} thing
+
+This has ${first_word} words ${second_word}!!
+
+Inside a string "${in_string}"
+
+${first_on_line} and ${last_on_line}
+
+This is what happens ${not_defined} when something isn't defined.
+
+#
+# Check out if the var subst works (does not yet support nested if statements).
+#
+
+Hi ${if do_this}This is a ${in_sub} dammit!
+And I like it ${end}there.
+
+Hi ${if donot_this}This is also a ${in_sub} and
+I'm outta here ${end}there.
+
+

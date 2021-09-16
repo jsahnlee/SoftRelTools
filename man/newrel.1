@@ -1,0 +1,185 @@
+.ad l
+.TH newrel 1 "April 27, 1999"
+
+.SH NAME
+.HP 10
+newrel \- Create a release within SoftRelTools
+
+.SH SYNOPSIS
+.HP 10
+.B newrel
+.B [-?, --help]
+.B [-p, -r, --frozen]
+.B [-d, --development]
+.B [-t, --test]
+.B [-e, --empty]
+.B [--boot]
+.B [-g <path>]
+.B [-f <file>]
+
+.SH DESCRIPTION
+newrel creates a new release within the software
+tree.   Two flavors are supported, called test
+and production. The production release can be
+either frozen or development.
+
+A test release is created within a user's file
+tree for  development and debugging purposes. No
+packages are  initially included within it - the
+user is expected to use addpkg to include the
+particular subset of all  packages that are
+needed for development.
+
+A production release is created in
+$SRT_DIST/releases, and is how code is
+"published" for use by the collaboration. If the
+\fB-f\fR option is specified, newrel reads a
+list  of packages and versions from file
+\fIpfile\fR, and uses  the same version as in the
+base release for each package  that isn't listed
+in \fIpfile\fR. If the \fB-f\fR option is not
+specified, newrel goes  through the list of
+packages in the base release, and  prompts for
+which version of each to use in the new  release.
+
+.SH System preferences for newrel
+
+newrel sources the file $SRT_DIST/srt/srtrc for
+directory creation preferences. If the variable
+``extra_dirs'' is defined, it is merged with the
+list of directories to be created. It should be
+in the form of a space-separated list of
+directory names. extra_dirs has two purposes:
+
+1. Extra directories can be created.
+
+2. Directories can be made into links to other
+   areas. The syntax for this is ``foo>/tmp/bar'',
+   which means that the directory foo will be made
+   into a link to /tmp/bar. If /tmp/bar does not
+   exist, newrel will (attempt to) create it.
+
+As in other places, srtrc is really a script
+which is sourced, so shell logic can be used. All
+that matters is the final value of extra_dirs. If
+``extra_dirs'' is not defined, newrel looks for
+``stddirs'' for backward compatibility with the
+old SoftRelTools.
+
+The variable ``release'' (the name of the new
+release) is guaranteed to be available when srtrc
+is sourced.
+
+.SH User preferences for newrel
+
+newrel also sources the file $HOME/.srtrc (note
+the leading dot) for directory creation
+preferences. See above for details. The following
+example .srtrc file is useful:
+
+extra_dirs=\
+"$extra_dirs tmp>/tmp/$release/tmp bin>/tmp/$release/bin lib>/tmp/$release/lib "
+
+It redirects all the directories containing large
+binary files to /tmp in such a way as not to
+interfere with other releases. Adding to the
+previous value of $extra_dirs makes certain that
+system-level defaults are also respected.
+
+
+.SH OPTIONS
+
+.PP
+.B -?, --help
+.RS 8
+ Prints the usage message
+.RE
+
+.PP
+.B -p, -r, --frozen
+.RS 8
+ Create a frozen (production) release
+.RE
+
+.PP
+.B -d, --development
+.RS 8
+ Create a development release
+.RE
+
+.PP
+.B -t, --test
+.RS 8
+ Create a test release
+.RE
+
+.PP
+.B -e, --empty
+.RS 8
+ Create an empty release, i.e., do not use a base
+ release. This option requires ommitting the
+ <base release> argument.
+.RE
+ 
+.PP
+.B --boot
+.RS 8
+  Create a boot release. All other options except
+ -g will be ignored.
+.RE
+
+.PP
+.B -g <path>
+.RS 8
+ Path to GNUmakefile.boot for boot release.
+.RE
+
+.PP
+.B -f <file>
+.RS 8
+
+ Use the version file specified by <file>,
+ which should have format:
+.RS 16
+ pkgA    V01-02-03
+ pkgB    V01-03-02
+ pkgC    delete
+ ...     ...
+.RE
+This may contain completely new packages (not
+found in the base  release), and/or packages that
+were in the base release. If the version
+specified is "delete", then that package will 
+\fBnot\fR be included in the new release.  Each
+package in the base release but not in <file>
+will  use the same version in the new release as
+in the base release.
+.RE
+
+.SH EXAMPLES
+To add a create a test release foobar based on the
+development release and include the package
+Hello:
+.RS
+.ft B
+.sp .5
+.nf
+example% newrel --test development foobar
+example% cd foobar
+example% addpkg --head Hello
+.fi
+.ft R
+.RE
+.LP
+
+.SH "FILES"
+$SRT_DIST/srt/srtrc, $HOME/.srtrc
+
+.SH AUTHOR
+Bob Jacobsen.  (Bob_Jacobsen@lbl.gov)
+Updated for SoftRelTools version 2 by James
+Amundson. (amundson@fnal.gov)
+
+.SH ORIGIN
+SoftRelTools version 2
+

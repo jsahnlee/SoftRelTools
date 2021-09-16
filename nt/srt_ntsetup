@@ -1,0 +1,21 @@
+#! /bin/sh
+# srt_ntsetup
+#
+#  Define the commands and other things needed to get the nt stuff to work.
+#  We have to do this because python doesn't know how to look at cywwin pathnames
+#  correctly. Really, the "proper" solution is to link python against the cygwin
+#  libraries...
+#
+#  $1 should be the base path name for this release.
+
+#olddir=`pwd`
+#cd $1/bin/$BFARCH
+#SRT_BIN=`python -c "import os; import sys; sys.stdout.write(os.getcwd());"`
+#export SRT_BIN
+
+#cd $1/lib/$BFARCH
+#SRT_LIB=`python -c "import os; import sys; sys.stdout.write(os.getcwd());"`
+#export SRT_LIB
+
+#cd $olddir
+

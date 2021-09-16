@@ -1,0 +1,45 @@
+(This is yet3 another test of the repository mailing mechanism.)
+This version of SoftRelTools needs two things to get started:
+1) A working boot release.
+2) A properly installed srt directory in the main release area.
+
+Once these two things are in place, users must
+1) Source the $SRT_DIST/srt/srt.(c)sh file appropriate for their shells.
+2) Execute "srt_setup".
+
+
+Instructions for creating the boot release and srt directory follow:
+
+----------------------------------------------------------------------
+
+To create a completely new SoftRelTools distribution:
+
+1) Get srt_distribution.tar and untar it. (srt_distribution.tar is
+distributed separately.)
+
+2) You now have a directory called srt_distribution. Move/rename it to
+whatever you want, but the instructions will refer to this directory as
+srt_distribution.
+
+3) cd to srt_distribution/srt directory.
+
+4) Execute the install script with "./install -p <your project>". You can
+see the options to install with "./install --help". The install script
+writes the location of the srt directory to the srt.(c)sh files. If you
+move the distribution, you will have to run install again. The project
+and cvsroot files can be modified by hand if you wish.
+
+----------------------------------------------------------------------
+
+To update an old SoftRelTools distribution to work with the new
+SoftRelTools:
+
+1) Untar the file boot_release.tar from this directory in your distribution
+"releases" directory.
+
+2) Copy the srt directory from this directory to the distribution
+directory (the directory the old SoftRelTools called $BFDIST.)
+
+3) cd to the new srt directory
+
+4) See step (4) above.

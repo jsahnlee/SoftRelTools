@@ -1,0 +1,103 @@
+#! /bin/sh
+#
+#  This guy will create projects for all targets specified on the command line.
+#  It will also remake the project workspace.
+#
+#  It should be run from the command line, at the top level directory (where the
+#  newrel dir is), just like the gmake bin or any other similar command. Perhaps,
+#  eventually, this will be part of that...
+#
+#  NOTE that this expects the bin area to be part of your exe path. It picks up
+#  some other scripts (like srt_make_ntide_files.py) from there!
+#
+#  Created November 1997 Gordon Watts (Brown)
+#
+
+#
+#  Figure out the arguments. If there is nothing there or the "all" target is
+#  included then we want to build a project workspace as well as a project file.
+#  Otherwise, we just want to build the projects and not the workspaces... the user
+#  will have to add the projects to the workspaces.
+#
+
+build_workspace=0
+if [ "$#" -eq 0 ]; then
+  build_workspace=1
+fi
+
+for target_name in $*
+do
+  if [ $target_name = "all" ]; then
+    build_workspace=1
+  fi
+done
+
+WS_BUILD=
+if [ $build_workspace -eq 0 ]; then
+  WS_BUILD="noworkspace"
+fi
+
+#
+# First, clean out the directories of everything. We need to do a complete build.
+#
+
+if [ $build_workspace -eq 1 ]; then
+  echo "Cleaning out the directorys..."
+  gmake clean
+fi
+echo "Making sure all required directories exist..."
+gmake installdirs
+
+#
+# If SoftRelTools is part of this, make sure to build it first
+#
+
+if [ -r SoftRelTools ]; then
+  if [ $build_workspace -eq 1 ]; then
+    echo "Making SRT..."
+    gmake SoftRelTools.all
+  fi
+fi
+
+#
+# Now, define the environ varriables that tell the NT commands to produce a text
+# log of what they are trying to do.  Also, if there is a previous log file, get
+# rid of it! Same goes for the list of temp files
+#
+
+NEWREL_DIR=`pwd`
+IDE_DUMP=$NEWREL_DIR/ide_dump.txt
+export IDE_DUMP
+IDE_TEMP_FILE_LIST=$NEWREL_DIR/ide_temp_files.txt
+export IDE_TEMP_FILE_LIST
+rm -f $IDE_DUMP
+rm -f $IDE_TEMP_FILE_LIST
+
+#
+# Great, now build a dummy version of everything, and, more importantly, produce
+# that log file
+#
+
+echo "Creating the IDE log file..."
+gmake $*
+
+#
+# Convert the log file into a bunch of IDE files for MSVC
+#
+temp=`dirname $0`
+temp=`posix2win32 $temp`
+python $temp\\..\\..\\lib\\${BFARCH}\\srt_make_ntide_files.py $IDE_DUMP $NEWREL_DIR $WS_BUILD
+
+#
+# Finally, clean out all the directories again. We have to do this because (!)
+# a bunch of dummy files were just produced, and if they are left there someone
+# might try to use them... and they are (rather) bogus.
+#
+
+echo "Cleaning out temporary files..."
+python $temp\\..\\..\\lib\\${BFARCH}\\srt_ntide_clean_dummy_files.py
+
+#
+# Done!
+#
+

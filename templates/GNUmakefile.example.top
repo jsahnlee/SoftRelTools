@@ -1,0 +1,10 @@
+# SoftRelTools GNUmakefile for SamplePackage top level
+
+# Compile the files in src subdirectory
+SUBDIRS=src
+
+# Header files go in include subdirectory
+PACKAGE_INCLUDE=include
+
+################################
+include SoftRelTools/standard.mk

@@ -1,0 +1,11 @@
+# SoftRelTools GNUmakefile for MySim top level
+
+# Compile the files in src subdirectory
+SUBDIRS=src test
+
+# Header files go in include subdirectory
+PACKAGE_INCLUDE=TARGET
+
+################################
+include SoftRelTools/standard.mk
+

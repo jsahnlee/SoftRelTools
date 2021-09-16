@@ -1,0 +1,117 @@
+#!/bin/sh
+
+script_defaults () {
+	project="default"
+	if [ ! -z "$CVSROOT" ]; then
+		cvsroot="$CVSROOT"
+	else
+		cvsroot=default
+	fi
+	expected_args=0
+	prog_name=install
+}
+
+process_args () {
+	while getopts "?p:c:-:" opt; do
+		if [ "$opt" = "-" ]; then
+			opt=$OPTARG
+		fi
+		case $opt in
+			\? | help)
+				usage
+				;;
+			c)
+				cvsroot=$OPTARG
+				;;
+			p)
+				project=$OPTARG
+				;;
+			*)	
+				usage
+				;;
+		esac
+	done
+	shift `expr $OPTIND - 1`
+	
+	if [ "$#" -ne "$expected_args" ]; then
+		usage
+	fi
+	
+}
+
+usage () {
+	echo "usage: install [options]"
+	echo ""
+	echo "install helps you with the settings in the srt directory of "
+	echo "your distribution."
+	echo ""
+	echo "options:"
+	echo "    -?, --help: prints this usage message"
+	echo "    -p <project>: sets the project to <project>"
+	echo "    -c <cvsroot>: sets cvsroot to <cvsroot>"
+	exit
+}
+
+find_script_location() 
+{
+
+    pathname=`dirname $0`
+    if [ "$pathname" = "." ]; then
+	pathname=""
+    fi
+    if (echo $pathname | sed 's/\/$//' | grep "^/"  >/dev/null) then
+	location=$pathname
+    else
+	location=`pwd`/$pathname
+    fi
+}
+
+
+actions () {
+	find_script_location
+	SRT_DIST=`dirname $location`
+	cd $SRT_DIST/srt
+	
+	echo "Setting (DEFAULT_)SRT_DIST to $SRT_DIST ..."
+
+	#srt.csh
+	sed -e "s|setenv SRT_DIST .*\$|setenv SRT_DIST $SRT_DIST|" srt.csh > tmp
+	mv tmp srt.csh
+	echo "Set SRT_DIST in srt.csh"
+
+	#srt.csh
+	sed -e "s|SRT_DIST=.*\$|SRT_DIST=$SRT_DIST|" srt.sh > tmp
+	mv tmp srt.sh
+	echo "Set SRT_DIST in srt.sh"
+
+	#srt_envrc
+	if [ ! -f "srt_envrc" ]; then
+		touch srt_envrc
+		echo "Created empty srt_envrc"
+	fi
+
+	#cvsroot
+	echo "$cvsroot" > cvsroot
+	echo "Set cvsroot to $cvsroot"
+	if [ "$cvsroot" = "default" ]; then
+		echo "   You should change this."
+	fi
+
+	#project
+	echo "$project" > project
+	echo "Set project to $project"
+	if [ "$project" = "default" ]; then
+		echo "   You should change this."
+	fi
+
+	echo "Installation complete. You can change all of these settings by editing"
+	echo "the files in $SRT_DIST/srt"
+}
+
+main () {
+	script_defaults
+	process_args $*
+	actions
+}
+
+main $*

@@ -1,0 +1,15 @@
+# This file exists only to generate a meaningful error message when
+# using the super release mechanism without a super directory in 
+# the release.
+
+ifeq ($(SRT_SUPER),true)
+   debug:=$(shell echo "SRT_SUPER=true, but the current release has not been" >&2)
+   debug:=$(shell echo "properly initialized. Type srt_super_init to initialize" >&2)
+   debug:=$(shell echo "the release, then restart gmake." >&2)
+else
+   debug:=$(shell echo "SoftRelTools should never reach this line." >&2)
+   debug:=$(shell echo "Please report the error to softreltools@fnal.gov" >&2)
+endif
+
+%:
+	@exit 1

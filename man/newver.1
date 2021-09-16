@@ -1,0 +1,74 @@
+.TH newver 1 "April 27, 1999"
+.SH NAME
+.HP 10
+newver \- Create a new version of a package in SoftRelTools
+
+.SH SYNOPSIS
+.HP 10
+.B newver
+.B [-?, --help]
+.B [-p, -r, --frozen]
+.B [--development]
+.B [-h, --head]
+.B [-d <cvsroot>]
+.B [-Q, --quiet]
+.B <package>
+.B <version tag>
+.SH DESCRIPTION
+
+newver adds a new version of a package to a distribution.
+.PP
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -p, -r, --frozen
+.RS 8
+ Create a frozen version by doing a cvs export.
+ This is the default behavior.
+.RE
+
+.PP
+.B --development
+.RS 8
+ Create a development version by doing a cvs
+ checkout.
+.RE
+
+.PP
+.B -h, --head
+.RS 8
+ Add the head version of <package>.
+.RE
+
+.PP
+.B -d <cvsroot> 
+.RS 8
+ Use <cvsroot> for the cvsroot.
+.RE
+
+.PP
+.B -Q, --quiet
+.RS 8
+ Perform cvs actions quietly.
+.RE
+
+
+.SH ARGUMENTS
+
+.PP 
+.B <version tag>
+.RS 8
+Tag used during CVS checkout or export.
+.RE
+
+.SH AUTHOR
+Bob Jacobsen. (Bob_Jacobsen@lbl.gov)
+Updated for SoftRelTools version 2 by James
+Amundson. (amundson@fnal.gov)
+
+.SH ORIGIN
+SoftRelTools version 2
+

@@ -1,0 +1,18 @@
+File       = Table
+Product    = SoftRelTools
+Flavor     = ANY
+Qualifiers = ""
+
+Action     = SETUP
+proddir()
+setupenv()
+pathprepend(PATH, ${UPS_PROD_DIR}/scripts)
+addalias(srt_setup,'${UPS_SOURCE} `srt_environment -X --${UPS_SHELL} %s`')
+execute(srt_setup, UPS_ENV)
+
+Action     = UNSETUP
+execute(srt_setup --unsetup, UPS_ENV)
+unalias(srt_setup)
+pathremove(PATH, ${UPS_PROD_DIR}/scripts)
+unsetupenv()
+unproddir()

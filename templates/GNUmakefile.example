@@ -1,0 +1,20 @@
+# SoftRelTools GNUmakefile for SamplePackage source directory 
+
+# Build a library an executable.
+LIB = libSamplePackage.a
+BINS = SamplePackageExample
+
+# Compile all the .cc files in this directory except
+# SamplePackageExample.cc into the library.
+skip_files := SamplePackageExample.cc
+LIBCCFILES = $(filter-out $(skip_files), $(wildcard *.cc))
+
+# Use the "simple binary" rules to generate the SamplePackageExample.
+# Will use the single source file SamplePackageExample.cc.
+SIMPLEBINS=SamplePackageExample
+
+# Link the binary with libSamplePackage
+BINLIBS=-lSamplePackage
+
+################################
+include SoftRelTools/standard.mk

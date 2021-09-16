@@ -1,0 +1,16 @@
+#############################################################
+# example Makefile for linking 
+# uses SoftRelTools/standard.mk
+#############################################################
+
+BINS =  BuildTARGET
+
+SIMPLEBINS = $(BINS) 
+
+#framework general 
+
+override LOADLIBES += -lTARGET
+
+############################################################
+include SoftRelTools/standard.mk
+include SoftRelTools/arch_spec_root.mk

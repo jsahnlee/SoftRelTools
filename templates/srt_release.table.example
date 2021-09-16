@@ -1,0 +1,40 @@
+# Example table file for srt_release.
+# Sections that are likely to need local modifications are marked with
+# the comment "(Modify this)."
+
+File       = Table
+Product    = srt_release
+Flavor     = ANY
+Qualifiers = ""
+
+Action     = SETUP
+proddir()
+setupenv()
+
+# Set the current and default distributions to the distribution
+# containing the release.
+envset(_SRT_INT_TMP, `dirname ${UPS_PROD_DIR}`)
+envset(DEFAULT_SRT_DIST,`dirname ${_SRT_INT_TMP}`)
+envset(SRT_DIST, ${DEFAULT_SRT_DIST})
+
+# Set the default base release to this release
+envset(DEFAULT_SRT_BASE_RELEASE, `basename ${UPS_PROD_DIR}`)
+
+# (Modify this)
+# Set the default compiler
+envset(DEFAULT_SRT_CXX, EGCS_1_1)
+
+# (Modify this)
+# Set the default CVSROOT
+envset(DEFAULT_CVSROOT, ":pserver:anonymous@dcdsv0.fnal.gov:/oss-cvs" )
+
+# (Modify this)
+# Set the default project
+envset(DEFAULT_SRT_PROJECT, ODS)
+
+# Dependent products may be setup here
+#setuprequired(egcs)
+#setuprequired(cvs)
+#setuprequired(gtools)
+
+setuprequired(SoftRelTools)

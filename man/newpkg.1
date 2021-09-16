@@ -1,0 +1,45 @@
+.ad l
+.TH newpkg 1 "April 27, 1999"
+.SH NAME
+.HP 10
+.B newpkg 
+\- Creates a new directory in the packages directory of a distribution
+
+.SH SYNOPSIS
+.HP 10
+.B newpkg
+.B [-?, --help]
+.B [-d <cvsroot>]
+.B <package name>
+
+.SH DESCRIPTION
+Creates a new directory in the packages directory
+of a distribution.
+
+The usage is "newpkg foo". 
+
+.SH OPTIONS
+.PP
+.B -?, --help
+.RS 8
+ prints the usage message
+.RE
+
+.PP
+.B    -d <cvsroot> 
+.RS 8
+ Set the cvsroot for the package in the
+ distribution to <cvsroot>.
+.RE
+
+.SH ARGUMENTS
+.PP
+.B <package name>
+.RS 8
+Name of the new package.
+.RE
+
+.SH AUTHOR
+James Amundson. (amundson@fnal.gov)
+
+

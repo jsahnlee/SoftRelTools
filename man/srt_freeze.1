@@ -1,0 +1,42 @@
+.ad l
+.TH srt_freeze 1 "April 27, 1999"
+.SH NAME
+.HP 10
+.B srt_freeze
+\- Query cvs for status of files.
+
+.HP 10
+.B srt_freeze
+\- Renders all files in <directory> unwriteable.
+.HP 10
+.B srt_freeze --melt
+\- Renders all files in <directory> owner writeable
+
+.SH SYNOPSIS
+.HP 10
+.B srt_freeze
+.B [-?, --help]
+.B [-m, --melt]
+.B <directory> 
+
+.SH DESCRIPTION
+srt_freeze renders all files in <directory>
+unwriteable. srt_freeze --melt renders all files
+in <directory> owner writeable.
+
+.SH OPTIONS
+.B -?, --help
+.RS 8
+ Prints the usage message.
+.RE
+
+.PP
+.B -m, --melt
+.RS 8
+ Render all files in <directory> owner writeable.
+.RE
+
+.SH AUTHOR
+James Amundson. (amundson@fnal.gov)
+
+

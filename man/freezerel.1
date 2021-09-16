@@ -1,0 +1,43 @@
+.TH freezerel 1 "March 1,1995"
+.SH NAME
+.HP 10
+rmrel \- "Freeze" a release within SoftRelTools
+
+.SH SYNOPSIS
+.HP 10
+.B freezerel
+.B -p
+
+.SH DESCRIPTION
+
+freezerel should be the last command executed when creating a production
+release within the BaBar software distribution.  It sets file protections,
+logs file lengths, etc, so that later checks can be made.
+It should be invoked from within the release directory.
+
+.SH OPTIONS
+.PP 
+.B \-p
+.RS 8
+Signifies production release, i.e. in the $BFDIST directory tree.
+This option is currently required.
+.RE
+
+.SH ARGUMENTS
+
+
+.SH ENVIROMENT
+.PP
+.B BFDIST
+.RS 8
+Head of the tree that contains the software releases. Usually set to $BFROOT/dist
+.RE
+
+.SH "SEE ALSO"
+SoftRelTools, newrel, auditrel
+
+.SH AUTHOR
+Bob Jacobsen (Bob_Jacobsen@lbl.gov)
+
+.SH ORIGIN
+The BaBar Software Release System
