@@ -1,7 +1,0 @@
-#! /bin/sh
-#
-#  run the msvc fortran compiler
-#
-temp=`dirname $0`
-temp=`posix2win32 $temp`
-python $temp\\..\\..\\lib\\${BFARCH}\\srt_ntf77.py $@

@@ -1,7 +1,0 @@
-#! /bin/sh
-#
-#  run d0cint
-#
-temp=`dirname $0`
-temp=`posix2win32 $temp`
-python $temp\\..\\..\\lib\\${BFARCH}\\srt_ntd0cint.py $@
