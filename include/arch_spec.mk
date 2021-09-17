@@ -142,58 +142,7 @@ $(postprocess_d)
 endef
 endif
 
-# (non-preprocessed) Fortran Macros
-define f_compile
-$(get_srt_src); $(FC) $(FCFLAGS) -c $$srt_src -o $@ 
-endef
-
-define f_compile_pic
-$(get_srt_src); $(FC) $(FCFLAGS) $(FPICFLAGS) -c $$srt_src -o $@
-endef
-
-
-# preprocessed Fortran Macros
-
-# g77_dependency_hack is only defined if g77 is being used. See below.
-define ff_generate_depends
-$(FPP) -M $(FCPPMFLAGS) $(CPPFLAGS) $< > $(dir $@)$(basename $(notdir $<)).d ||\
- /bin/rm -f $(dir $@)$(basename $(notdir $<)).d
-$(g77_dependency_hack)
-endef
-
-define ff_compile
-$(get_srt_src); $(FC) $(FCFLAGS) $(CPPFLAGS) -c $$srt_src -o $@
-endef
-
-define ff_compile_pic
-$(get_srt_src); $(FC) $(FCFLAGS) $(CPPFLAGS) $(FPICFLAGS) -c $$srt_src -o $@
-endef
-
-define ff_compile_with_depends
-$(ff_compile)
-$(ff_generate_depends)
-$(postprocess_d)
-endef
-
-define ff_compile_pic_with_depends
-$(ff_compile_pic)
-$(ff_generate_depends)
-$(postprocess_d)
-endef
-
 include SoftRelTools/platforms/$(SRT_ARCH).mk
-
-# g77 has an imcompatible method for generating dependency files
-# This hack works around the problem.
-ifeq ($(FPP),g77)
-define g77_dependency_hack
-test -f $(dir $@)$(basename $(notdir $<)).d && \
-cat $(dir $@)/$(basename $(notdir $<)).d | \
-sed 's?\.F.o?\.o ?g' > \
-$(workdir)srt_dep_tmp.$$$$ ; \
-mv $(workdir)srt_dep_tmp.$$$$ $(dir $@)/$(basename $(notdir $<)).d
-endef
-endif
 
 define build_simplebin
 $(CXX) $(workdir)$(patsubst %$(BINEXTENSION),%,$(@F)).o \
@@ -231,10 +180,5 @@ override CPPFLAGS += $(DEFINES)
 
 -include SRT_$(SRT_PROJECT)/special/arch_spec.mk
 -include SRT_SITE/special/arch_spec.mk
-
-# Support for ISOcxx
-ifeq ($(USE_ISOCXX),true)
-    -include ISOcxx/ISOcxx.mk
-endif # ISOcxx
 
 endif #have_included_arch_spec

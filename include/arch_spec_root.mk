@@ -3,6 +3,11 @@
 # Warning: this file violates some SoftRelTools conventions 
 
 extpkg:=root
+
+ROOT_CPPFLAGS := $(shell root-config)
+
+
+
 ROOTSYS_DEFAULT := /root-sys-not-defined
 ifndef ROOTSYS
     arch_spec_warning:=\

@@ -10,9 +10,7 @@ ifeq ($(findstring insure,$(SRT_QUAL)),insure)
  CC:= insure
 endif
 
-ifeq ($(SRT_ARCH),Linux2)
-    override CXXFLAGS += -march=i686 -Wall
-endif
+override CXXFLAGS += -march=x86_64 -Wall
 
 PICFLAG:= -fpic
 ARFLAGS = r
